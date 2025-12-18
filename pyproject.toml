@@ -1,0 +1,27 @@
+[project]
+name = "pydantic-ai-base-kernel"
+version = "0.1.0"
+description = "Base kernel for pydantic-ai kernels"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = ["ipykernel>=7.1.0", "pydantic>=2.12.3", "pydantic-ai>=1.34.0"]
+authors = [
+    { name = "Marius Garénaux Gruau", email = "marius.garenaux-gruau@irisa.fr" },
+]
+maintainers = [
+    { name = "Marius Garénaux Gruau", email = "marius.garenaux-gruau@irisa.fr" },
+]
+keywords = ["ai", "kernel", "jupyter", "pydantic-ai", "agent"]
+
+
+[tool.hatch.version]
+path = "pydantic_ai_kernel/__init__.py"
+
+# Used to call hatch_build.py
+[tool.hatch.build.hooks.custom]
+
+[tool.hatch.build.targets.sdist]
+include = ["/pydantic_ai_base_kernel"]
+
+[tool.hatch.build.targets.wheel.shared-data]
+"data_kernelspec/share" = "share"
