@@ -4,6 +4,8 @@ This is wrapper around pydantic-ai agent, that allows to requests it through jup
 
 It is meant to be subclassed to create new kernel-based agent, for adding tools or any special application.
 
+![](https://github.com/mariusgarenaux/pydantic-ai-kernel/blob/main/capture.png?raw=True)
+
 ## Getting started
 
 Within a python venv,
