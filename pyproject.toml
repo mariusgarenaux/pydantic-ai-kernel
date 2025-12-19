@@ -22,6 +22,9 @@ maintainers = [
 ]
 keywords = ["ai", "kernel", "jupyter", "pydantic-ai", "agent"]
 
+[project.urls]
+Repository = "https://github.com/mariusgarenaux/pydantic-ai-kernel"
+
 
 [tool.hatch.version]
 path = "pydantic_ai_kernel/__init__.py"
