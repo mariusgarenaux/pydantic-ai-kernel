@@ -198,14 +198,14 @@ the field 'provider' below.""",
                 return infer_model(self.model_name)
             except Exception as e:
                 raise Exception(
-                    "Could not find model provider and model type only from model_name. Please add at least a model_type."
+                    f"Could not access model. See error above or consider adding at least information about the model type in the configuration file. Model types are : {AllModelKind}."
                 ) from e
         if self.model_provider is None:
             try:
                 return infer_model(self.model_name)
             except Exception as e:
                 raise Exception(
-                    "Could not find model provider only from model_name. Please add a model provider."
+                    "Could not access model. See error above or consider adding at least a model provider in configuration file.."
                 ) from e
 
         provider = self.model_provider.get_provider

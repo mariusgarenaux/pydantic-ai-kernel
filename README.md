@@ -22,7 +22,7 @@ Then, any jupyter frontend should be able to treat with this agent, for example 
 
 • **CLI** : Install jupyter-console (`pip install jupyter-console`); and run `jupyter console --kernel pydantic_ai`
 
-• **Silik Signal Messaging** : Access the kernel through Signal Message Application.
+• **Silik Signal Messaging** : Access the kernel through Signal Message Application, see [here](https://github.com/mariusgarenaux/silik-messaging)
 
 ## Configuration file
 
@@ -55,6 +55,15 @@ model:
     params:
       base_url: http://localhost:11434/v1
 ```
+
+If you just need to use an external open-ai provider, put :
+
+```yaml
+model:
+  model_name: openai:gpt-4o
+```
+
+and specify API key in environment variable.
 
 Scheme can be found [here](pydantic_ai_kernel/config_scheme.json).
 

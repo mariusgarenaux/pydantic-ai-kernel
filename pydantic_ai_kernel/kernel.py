@@ -2,6 +2,7 @@ from ipykernel.kernelbase import Kernel
 from pathlib import Path
 import logging
 import os
+from uuid import uuid4
 import yaml
 from .agent_config import AgentConfig
 from pydantic_ai import (
@@ -17,6 +18,9 @@ from pydantic_ai import (
 
 from typing import Literal
 from typing_extensions import TypedDict
+
+
+KERNEL_NAME = "pydantic_ai"
 
 
 def setup_kernel_logger(name, log_dir="~/.silik_logs"):
@@ -58,7 +62,7 @@ class PydanticAIBaseKernel(Kernel):
     language = "no-op"
     language_version = "0.1"
     language_info = {
-        "name": "pydantic_ai_kernel",
+        "name": "pydantic_ai",
         "mimetype": "text/plain",
         "file_extension": ".txt",
     }
@@ -99,8 +103,7 @@ class PydanticAIBaseKernel(Kernel):
         Returns the validated config object, or raise an Error.
         """
         home = Path.home()
-        kernel_name = self.language_info["name"]
-        dir = home / f".jupyter/jupyter_{kernel_name}_config.yaml"
+        dir = home / f".jupyter/jupyter_{KERNEL_NAME}_config.yaml"
         try:
             with open(dir, "rt") as f:
                 conf = yaml.safe_load(f)
@@ -174,13 +177,29 @@ class PydanticAIBaseKernel(Kernel):
         agent_answer = await self.agent.run(code, message_history=self.message_history)
 
         content = agent_answer.output
+
+        question_id = str(uuid4())
+        answer_id = str(uuid4())
+        new_messages = [
+            {
+                "role": "user",
+                "content": code,
+                "uid": question_id,
+            },
+            {
+                "role": "assistant",
+                "content": content,
+                "uid": answer_id,
+            },
+        ]
+        self.add_message_to_history(new_messages)
         self.send_response(
             self.iopub_socket,
             "execute_result",
             {
                 "execution_count": self.execution_count,
                 "data": {"text/plain": content},
-                "metadata": {},
+                "metadata": {"new_messages_id": [question_id, answer_id]},
             },
         )
         return {
