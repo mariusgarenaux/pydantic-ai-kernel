@@ -2,6 +2,7 @@ from ipykernel.kernelbase import Kernel
 from pathlib import Path
 import logging
 import os
+import yaml
 from pydantic import BaseModel
 from pydantic_ai import (
     Agent,
@@ -70,7 +71,7 @@ class PydanticAIBaseKernel(Kernel):
     language = "no-op"
     language_version = "0.1"
     language_info = {
-        "name": "pydantic_ai_agent",
+        "name": "pydantic_ai_kernel",
         "mimetype": "text/plain",
         "file_extension": ".txt",
     }
@@ -98,15 +99,28 @@ class PydanticAIBaseKernel(Kernel):
             self.logger = self.log
 
         if agent_config is None:
-            self.logger.debug(
-                "No agent config was found. Initialize kernel with one, or sublass it."
-            )
-            return
+            agent_config = self.load_config()
         self.agent = self.create_agent(agent_config, tools, toolsets)
         self.message_history: list[ModelMessage] = [
             ModelRequest(parts=[SystemPromptPart(content=agent_config.system_prompt)])
         ]
         self.all_messages_ids = []
+
+    def load_config(self) -> AgentConfig:
+        """
+        Try to load config file at ~/.jupyter/jupyter_<kernel_name>_config.yaml.
+        Returns the validated config object, or raise an Error.
+        """
+        home = Path.home()
+        kernel_name = self.language_info["name"]
+        dir = home / f".jupyter/jupyter_{kernel_name}_config.yaml"
+        try:
+            with open(dir, "rt") as f:
+                conf = yaml.safe_load(f)
+            validated_conf = AgentConfig.model_validate(conf)
+            return validated_conf
+        except Exception as e:
+            raise Exception(f"Could not access config file for agent at {dir}.") from e
 
     def create_agent(
         self,

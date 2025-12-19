@@ -39,5 +39,5 @@ class CustomHook(BuildHookInterface):
                     print("Custom logo files not found. Default logos will be used.")
 
             KernelSpecManager().install_kernel_spec(
-                td, "silik", user=False, prefix=prefix
+                td, "pydantic_ai", user=False, prefix=prefix
             )
