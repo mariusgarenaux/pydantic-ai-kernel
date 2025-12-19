@@ -69,12 +69,12 @@ Scheme can be found [here](pydantic_ai_kernel/config_scheme.json).
 
 ## Creating your own agents
 
-In order to create custom agents, you just need to create a new kernel, and subclass PydanticAIBaseKernel from this library.
+In order to create custom agents, you just need to create a new kernel, and subclass PydanticAIBaseKernel from this library. See an example here : [https://github.com/mariusgarenaux/rudi-kernel]
 
 You can then create tools, or any mechanism you want. We provide here juste the communication protocol between agent and user, through well known and proven jupyter kernels.
 
-The configuration file for any subclass of PydanticAIBaseKernel will be fetched from : `~/.jupyter/jupyter_<kernel_name>_config.yaml`; and must follows the same scheme as the one of pydantic_ai_kernel.
+The configuration file for any subclass of PydanticAIBaseKernel will be fetched from : `~/.jupyter/jupyter_<kernel_name>_config.yaml`; and must follows the same scheme as the one of [pydantic_ai_kernel](pydantic_ai_kernel/config_scheme.json).
 
 ## Dealing with multi-agents
 
-Multi-agents means ear several agents that have access to the same context. To do so, you can for example use [**silik-kernel**](https://github.com/mariusgarenaux/silik-kernel); an other kernel that allows several kernels to be started and managed through a single one.
+Multi-agents means here several agents that have access to the same context. To do so, you can for example use [**silik-kernel**](https://github.com/mariusgarenaux/silik-kernel); an other kernel that allows several kernels to be started and managed through a single one.
