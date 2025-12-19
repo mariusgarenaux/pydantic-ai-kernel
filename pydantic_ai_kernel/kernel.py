@@ -20,9 +20,6 @@ from typing import Literal
 from typing_extensions import TypedDict
 
 
-KERNEL_NAME = "pydantic_ai"
-
-
 def setup_kernel_logger(name, log_dir="~/.silik_logs"):
     log_dir = Path(log_dir).expanduser()
 
@@ -70,12 +67,18 @@ class PydanticAIBaseKernel(Kernel):
 
     def __init__(
         self,
+        kernel_name: str = "pydantic_ai",
         agent_config: AgentConfig | None = None,
         tools: list | None = None,
         toolsets: list[FunctionToolset] | None = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
+        if kernel_name == "pydantic_ai" and self.language_info["name"] != "pydantic_ai":
+            raise Exception(
+                "Specify parameter 'name' in all subclasses of PydanticAIBaseKernel."
+            )
+        self.kernel_name = kernel_name
 
         should_custom_log = os.environ.get("PYDANTIC_AI_KERNEL_LOG", "False")
         should_custom_log = (
@@ -103,7 +106,7 @@ class PydanticAIBaseKernel(Kernel):
         Returns the validated config object, or raise an Error.
         """
         home = Path.home()
-        dir = home / f".jupyter/jupyter_{KERNEL_NAME}_config.yaml"
+        dir = home / f".jupyter/jupyter_{self.kernel_name}_config.yaml"
         try:
             with open(dir, "rt") as f:
                 conf = yaml.safe_load(f)

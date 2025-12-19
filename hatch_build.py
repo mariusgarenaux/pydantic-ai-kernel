@@ -9,6 +9,7 @@ import shutil
 from jupyter_client.kernelspec import KernelSpecManager
 from tempfile import TemporaryDirectory
 
+
 # use 'python' executable for portable wheels
 #
 kernel_json = {
