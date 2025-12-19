@@ -1,7 +1,7 @@
 import os
 import sys
 from hatchling.builders.hooks.plugin.interface import BuildHookInterface
-from pydantic_ai_kernel.kernel import KERNEL_NAME
+
 
 import json
 import shutil
@@ -39,5 +39,5 @@ class CustomHook(BuildHookInterface):
                     print("Custom logo files not found. Default logos will be used.")
 
             KernelSpecManager().install_kernel_spec(
-                td, KERNEL_NAME, user=False, prefix=prefix
+                td, "pydantic_ai", user=False, prefix=prefix
             )
