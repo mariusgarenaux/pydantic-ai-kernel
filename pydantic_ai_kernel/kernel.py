@@ -3,7 +3,7 @@ from pathlib import Path
 import logging
 import os
 import yaml
-from pydantic import BaseModel
+from .agent_config import AgentConfig
 from pydantic_ai import (
     Agent,
     ModelRequest,
@@ -15,9 +15,6 @@ from pydantic_ai import (
     FunctionToolset,
 )
 
-from pydantic_ai.models import infer_model
-from pydantic_ai.providers.ollama import OllamaProvider
-from pydantic_ai.models.openai import OpenAIChatModel
 from typing import Literal
 from typing_extensions import TypedDict
 
@@ -40,17 +37,7 @@ def setup_kernel_logger(name, log_dir="~/.silik_logs"):
     return logger
 
 
-class InferenceProviderConfig(BaseModel):
-    name: str
-    url: str
-
-
-class AgentConfig(BaseModel):
-    agent_name: str
-    system_prompt: str
-    model_name: str
-    tools: list[str] | str | None = None
-    provider: InferenceProviderConfig | None = None
+logger = setup_kernel_logger(__name__)
 
 
 class ChatMessage(TypedDict):
@@ -120,7 +107,9 @@ class PydanticAIBaseKernel(Kernel):
             validated_conf = AgentConfig.model_validate(conf)
             return validated_conf
         except Exception as e:
-            raise Exception(f"Could not access config file for agent at {dir}.") from e
+            raise Exception(
+                f"Could not load and validate config file for agent at {dir}."
+            ) from e
 
     def create_agent(
         self,
@@ -128,21 +117,20 @@ class PydanticAIBaseKernel(Kernel):
         tools: list | None,
         toolsets: list[FunctionToolset] | None,
     ) -> Agent:
-        self.logger.info(agent_config)
-        if agent_config.provider is not None and agent_config.provider.name == "ollama":
-            provider = OllamaProvider(base_url=agent_config.provider.url)
-            model = OpenAIChatModel(agent_config.model_name, provider=provider)
-        else:
-            model = infer_model(agent_config.model_name)
-
+        try:
+            model = agent_config.model.get_model
+        except NotImplementedError as e:
+            model = agent_config.model.model_name
+            logger.warning(e)
         agent = Agent(
             model,
             output_type=str,
+            system_prompt=agent_config.system_prompt,
             tools=tools if tools is not None else [],
             toolsets=toolsets if toolsets is not None else [],
-            system_prompt=agent_config.system_prompt,
+            name=agent_config.agent_name,
         )
-        self.logger.info("Created agent : %s", agent)
+
         return agent
 
     def add_message_to_history(self, messages: list):

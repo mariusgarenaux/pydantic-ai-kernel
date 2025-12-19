@@ -1,0 +1,124 @@
+{
+  "$defs": {
+    "ModelConfig": {
+      "description": "Describe a model and its inference provider. Is given to pydantic-ai\nagent.",
+      "properties": {
+        "model_type": {
+          "anyOf": [
+            {
+              "enum": [
+                "test",
+                "openai",
+                "azure",
+                "deepseek",
+                "fireworks",
+                "github",
+                "grok",
+                "heroku",
+                "moonshotai",
+                "ollama",
+                "together",
+                "vercel",
+                "litellm",
+                "nebius",
+                "ovhcloud",
+                "alibaba",
+                "openai-chat",
+                "openai-responses",
+                "google-gla",
+                "google-vertex",
+                "google",
+                "groq",
+                "cohere",
+                "mistral",
+                "openrouter",
+                "anthropic",
+                "bedrock",
+                "huggingface",
+                "cerebras"
+              ],
+              "type": "string"
+            },
+            { "type": "null" }
+          ],
+          "default": null,
+          "title": "Model Type"
+        },
+        "model_name": {
+          "description": "Following pydantic-ai implementation, there are two ways\n to write model name :\n    - <provider_name>:<model_name>, example 'ollama:qwen3:1.7b\n    - <model_name>\n    \nIn the first one, you CAN provide additionnal informations on the provider within\nthe field 'provider' below. They will **erase** the ones infered by pydantic-ai.\nA wide range of values is possible here, and you can refer to pydantic-ai documentation :\nhttps://ai.pydantic.dev/models/overview/\n\nIn the second one, you MUST provide additionnal informations on the provider within\nthe field 'provider' below.",
+          "examples": ["ollama:qwen3:1.7b", "qwen3.1:1.7b"],
+          "title": "Model Name",
+          "type": "string"
+        },
+        "model_settings": {
+          "anyOf": [
+            { "additionalProperties": true, "type": "object" },
+            { "type": "null" }
+          ],
+          "default": null,
+          "description": "Settings for the model. Depends on model and inference provider. See https://ai.pydantic.dev/api/settings/#pydantic_ai.settings.ModelSettings",
+          "title": "Model Settings"
+        },
+        "model_provider": {
+          "anyOf": [
+            { "$ref": "#/$defs/ModelProviderConfig" },
+            { "type": "null" }
+          ],
+          "default": null,
+          "description": "Description of the inference provider. When specified, inferred information about the provider from model_name will be erased."
+        }
+      },
+      "required": ["model_name"],
+      "title": "ModelConfig",
+      "type": "object"
+    },
+    "ModelProviderConfig": {
+      "properties": {
+        "name": {
+          "description": "Name of the inference provider. The complete list is the one from pydantic-ai. https://ai.pydantic.dev/api/providers/",
+          "examples": [
+            "ollama",
+            "litellm",
+            "anthropic",
+            "nebius",
+            "alibaba",
+            "ovhcloud"
+          ],
+          "title": "Name",
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": true,
+          "description": "The parameters that will be given to pydantic-ai Provider class. Depends on provider name. Go to : https://ai.pydantic.dev/models/overview/",
+          "examples": [{ "base_url": "http://localhost:11434/v1" }],
+          "title": "Params",
+          "type": "object"
+        }
+      },
+      "required": ["name", "params"],
+      "title": "ModelProviderConfig",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "agent_name": {
+      "description": "The name of the agent within the application - different from model name.",
+      "examples": ["my-agent", "summarizer", "image-generator"],
+      "title": "Agent Name",
+      "type": "string"
+    },
+    "system_prompt": {
+      "description": "The system prompt for this agent.",
+      "examples": [
+        "You are a nice agent who answers nicely to requests of the user",
+        "You are a specialist in cooking and are always willing to provide informations on new cooking recipees."
+      ],
+      "title": "System Prompt",
+      "type": "string"
+    },
+    "model": { "$ref": "#/$defs/ModelConfig" }
+  },
+  "required": ["agent_name", "system_prompt", "model"],
+  "title": "AgentConfig",
+  "type": "object"
+}

@@ -3,4 +3,5 @@
 __version__ = "1.1.1"
 
 
-from .kernel import PydanticAIBaseKernel, AgentConfig, InferenceProviderConfig  # noqa: F401
+from .kernel import PydanticAIBaseKernel
+from .agent_config import AgentConfig, ModelProviderConfig, ModelConfig

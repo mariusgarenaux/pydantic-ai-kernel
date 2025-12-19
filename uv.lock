@@ -2093,9 +2093,8 @@ wheels = [
 ]
 
 [[package]]
-name = "pydantic-ai-base-kernel"
-version = "0.1.0"
-source = { virtual = "." }
+name = "pydantic-ai-kernel"
+source = { editable = "." }
 dependencies = [
     { name = "ipykernel" },
     { name = "pydantic" },
