@@ -87,6 +87,10 @@ You can then create tools, or any mechanism you want. We provide here juste the 
 
 The default configuration file for any subclass of PydanticAIBaseKernel will be fetched from : `~/.jupyter/jupyter_<kernel_name>_config.yaml`; and must follows the same scheme as the one of [pydantic_ai_kernel](pydantic_ai_kernel/config_scheme.json). But it can also be specify by sending a message to the kernel : `/load_config <path_to_config_file>`
 
+### Developer - Debug
+
+If you want to see the logs of the kernel; export the environment variable `PYDANTIC_AI_KERNEL_LOG` to 'True'. You also need to create a dir to save logs at `~/.pydantic_ai_kernel_logs`. For subclasses, logger can be accessed with `self.logger` (e.g. `self.logger.debug('hey')`).
+
 ## Dealing with multi-agents
 
 Multi-agents means here several agents that have access to the same context. To do so, you can for example use [**silik-kernel**](https://github.com/mariusgarenaux/silik-kernel); an other kernel that allows several kernels to be started and managed through a single one.

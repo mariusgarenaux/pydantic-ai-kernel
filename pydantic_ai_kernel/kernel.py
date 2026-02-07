@@ -24,7 +24,7 @@ from typing import Literal, Type
 from typing_extensions import TypedDict
 
 
-def setup_kernel_logger(name, log_dir="~/.silik_logs"):
+def setup_kernel_logger(name, log_dir="~/.pydantic_ai_kernel_logs"):
     log_dir = Path(log_dir).expanduser()
 
     if not os.path.isdir(log_dir):
