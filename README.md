@@ -14,17 +14,29 @@ Within a python venv,
 pip install pydantic-ai-kernel
 ```
 
-In order to specify information about the agent, you **have** to set up a config file, and place it in : `~/.jupyter/jupyter_pydantic_ai_kernel_config.yaml`. See [Configuration File](#configuration-file) to get details.
-
-Then, any jupyter frontend should be able to treat with this agent, for example :
-
-• **Notebook** (you might need to restart the IDE) : select 'pydantic_ai' on top right of the notebook
+Any jupyter frontend should be able to dialog with this kernel, for example :
 
 • **CLI** : Install jupyter-console (`pip install jupyter-console`); and run `jupyter console --kernel pydantic_ai`
+
+• **Notebook** (you might need to restart the IDE) : select 'pydantic_ai' on top right of the notebook
 
 • **Silik Signal Messaging** : Access the kernel through Signal Message Application, see [here](https://github.com/mariusgarenaux/silik-messaging)
 
 ## Configuration file
+
+By default, kernel starts by looking for a configuration file here :
+
+> `~/.jupyter/jupyter_pydantic_ai_kernel_config.yaml`
+
+But you can also run the kernel as is; and specify the path to a config file by executing the following message in a cell :
+
+```text
+/load_config <path_to_kernel_config_file>
+```
+
+This allows to have different instances of the same kernel, each with its own system prompt and / or inference provider.
+
+### Description of the configuration file
 
 The configuration standard is a little bit cumbersome but is made to match the description of agents in pydantic-ai. We describe hereafter this standard.
 
@@ -73,8 +85,10 @@ In order to create custom agents, you just need to create a new kernel, and subc
 
 You can then create tools, or any mechanism you want. We provide here juste the communication protocol between agent and user, through well known and proven jupyter kernels.
 
-The configuration file for any subclass of PydanticAIBaseKernel will be fetched from : `~/.jupyter/jupyter_<kernel_name>_config.yaml`; and must follows the same scheme as the one of [pydantic_ai_kernel](pydantic_ai_kernel/config_scheme.json).
+The default configuration file for any subclass of PydanticAIBaseKernel will be fetched from : `~/.jupyter/jupyter_<kernel_name>_config.yaml`; and must follows the same scheme as the one of [pydantic_ai_kernel](pydantic_ai_kernel/config_scheme.json). But it can also be specify by sending a message to the kernel : `/load_config <path_to_config_file>`
 
 ## Dealing with multi-agents
 
 Multi-agents means here several agents that have access to the same context. To do so, you can for example use [**silik-kernel**](https://github.com/mariusgarenaux/silik-kernel); an other kernel that allows several kernels to be started and managed through a single one.
+
+You can also start several kernels independantly, and deal with them as you would with several classic jupyter kernels.
