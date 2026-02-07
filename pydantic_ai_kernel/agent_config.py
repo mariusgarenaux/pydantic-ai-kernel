@@ -205,7 +205,7 @@ the field 'provider' below.""",
                 return infer_model(self.model_name)
             except Exception as e:
                 raise Exception(
-                    "Could not access model. See error above or consider adding at least a model provider in configuration file.."
+                    "Could not access model. See error above or consider adding at least a model provider in configuration file"
                 ) from e
 
         provider = self.model_provider.get_provider
