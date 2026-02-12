@@ -1,5 +1,4 @@
 from .agent_config import AgentConfig
-from .command_parser import CommandParser, Command, CommandArgs
 
 import traceback
 import shlex
@@ -19,8 +18,10 @@ from pydantic_ai import (
     TextPart,
     FunctionToolset,
 )
+from statikomand import KomandParser
 
-from typing import Literal, Type
+from dataclasses import dataclass
+from typing import Literal, Type, Callable
 from typing_extensions import TypedDict
 
 
@@ -53,6 +54,12 @@ class ChatMessage(TypedDict):
     content: str
 
 
+@dataclass
+class Command:
+    handler: Callable
+    parser: KomandParser
+
+
 class PydanticAIBaseKernel(Kernel):
     """
     Kernel wrapper for pydantic agents. It is meant to be subclassed.
@@ -79,10 +86,7 @@ class PydanticAIBaseKernel(Kernel):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        if kernel_name == "pydantic_ai" and self.language_info["name"] != "pydantic_ai":
-            raise Exception(
-                "Specify parameter 'name' in all subclasses of PydanticAIBaseKernel."
-            )
+
         self.kernel_name = kernel_name
 
         should_custom_log = os.environ.get("PYDANTIC_AI_KERNEL_LOG", "False")
@@ -111,13 +115,7 @@ class PydanticAIBaseKernel(Kernel):
             self.agent = None
 
         self.all_messages_ids = []
-        self.all_cmds = {
-            "/system_prompt": Command(
-                self.change_agent_config_handler,
-                CommandParser(["prompt"]),
-            ),
-            "/load_config": Command(self.reload_config, CommandParser(["dir"])),
-        }
+        self.init_cmds()
 
     def reload_config(self, args):
         new_conf = self.load_config(config_dir=args.dir)
@@ -225,7 +223,7 @@ class PydanticAIBaseKernel(Kernel):
 
     async def do_execute(  # pyright: ignore
         self,
-        code,
+        code: str,
         silent,
         store_history=True,
         user_expressions=None,
@@ -239,7 +237,7 @@ class PydanticAIBaseKernel(Kernel):
                 cmd_obj = self.all_cmds[cmd]
                 splitted = shlex.split(code)
                 self.logger.debug(f"shlex splitted {splitted}")
-                args = cmd_obj.parser.parse(splitted[1:])
+                args = cmd_obj.parser.parse(code.removeprefix(cmd))
                 self.logger.debug(f"command : {cmd} {args}, {cmd_obj.handler}")
                 cmd_out = cmd_obj.handler(args)
                 cmd_out = "" if cmd_out is None else cmd_out
@@ -364,42 +362,124 @@ class PydanticAIBaseKernel(Kernel):
         }
 
     def do_complete(self, code: str, cursor_pos: int):
-        splitted = code.split(" ")
-        self.logger.debug(f"do complete , splitted = {splitted}")
-        if len(splitted) == 0:
-            return {
-                "status": "ok",
-                "matches": [],
-                "cursor_start": cursor_pos,
-                "cursor_end": cursor_pos,
-                "metadata": {},
-            }
-        if len(splitted) == 1:
-            return self.complete_first_word(splitted, cursor_pos)
-        if splitted[0] not in self.all_cmds:
-            return {
-                "status": "ok",
-                "matches": [],
-                "cursor_start": cursor_pos,
-                "cursor_end": cursor_pos,
-                "metadata": {},
-            }
+        try:
+            splitted = code.split(" ")
+            self.logger.debug(f"do complete , splitted = {splitted}")
+            if len(splitted) == 0:
+                return {
+                    "status": "ok",
+                    "matches": [],
+                    "cursor_start": cursor_pos,
+                    "cursor_end": cursor_pos,
+                    "metadata": {},
+                }
+            if len(splitted) == 1:
+                return self.complete_first_word(splitted, cursor_pos)
+            if splitted[0] in self.all_cmds:
+                cmd_name = splitted[0]
+                word_to_complete = splitted[-1]
+                self.logger.debug(f"Completing command {cmd_name} | {word_to_complete}")
+                all_matches = self.all_cmds[cmd_name].parser.do_complete(
+                    word_to_complete
+                )
 
-        return {
-            # status should be 'ok' unless an exception was raised during the request,
-            # in which case it should be 'error', along with the usual error message content
-            # in other messages.
-            "status": "ok",
-            # The list of all matches to the completion request, such as
-            # ['a.isalnum', 'a.isalpha'] for the above example.
-            "matches": [],
-            # The range of text that should be replaced by the above matches when a completion is accepted.
-            # typically cursor_end is the same as cursor_pos in the request.
-            "cursor_start": cursor_pos,
-            "cursor_end": cursor_pos,
-            # Information that frontend plugins might use for extra display information about completions.
-            "metadata": {},
-        }
+                return {
+                    "status": "ok",
+                    "matches": all_matches,
+                    "cursor_start": cursor_pos - len(word_to_complete),
+                    "cursor_end": cursor_pos,
+                    "metadata": {},
+                }
+            if splitted[0] not in self.all_cmds:
+                return {
+                    "status": "ok",
+                    "matches": [],
+                    "cursor_start": cursor_pos,
+                    "cursor_end": cursor_pos,
+                    "metadata": {},
+                }
+
+            return {
+                # status should be 'ok' unless an exception was raised during the request,
+                # in which case it should be 'error', along with the usual error message content
+                # in other messages.
+                "status": "ok",
+                # The list of all matches to the completion request, such as
+                # ['a.isalnum', 'a.isalpha'] for the above example.
+                "matches": [],
+                # The range of text that should be replaced by the above matches when a completion is accepted.
+                # typically cursor_end is the same as cursor_pos in the request.
+                "cursor_start": cursor_pos,
+                "cursor_end": cursor_pos,
+                # Information that frontend plugins might use for extra display information about completions.
+                "metadata": {},
+            }
+        except Exception as e:
+            self.send_response(
+                self.iopub_socket,
+                "error",
+                {
+                    "ename": "",
+                    "evalue": "",
+                    "traceback": traceback.format_exception(e),
+                },
+            )
+            self.logger.warning(traceback.format_exception(e))
+            return {
+                # status should be 'ok' unless an exception was raised during the request,
+                # in which case it should be 'error', along with the usual error message content
+                # in other messages.
+                "status": "error",
+                # The list of all matches to the completion request, such as
+                # ['a.isalnum', 'a.isalpha'] for the above example.
+                "matches": [],
+                # The range of text that should be replaced by the above matches when a completion is accepted.
+                # typically cursor_end is the same as cursor_pos in the request.
+                "cursor_start": cursor_pos,
+                "cursor_end": cursor_pos,
+                # Information that frontend plugins might use for extra display information about completions.
+                "metadata": {},
+            }
 
     def do_shutdown(self, restart):
         return super().do_shutdown(restart)
+
+    def complete_path(self, path: str):
+        path_obj = Path(path)
+        self.logger.debug(str(path_obj))
+        if len(path) > 0 and path[-1] == "/":
+            parent = path_obj
+            name = ""
+        else:
+            parent = path_obj.parent
+            name = path_obj.name
+
+        self.logger.debug(f"last element :{name}")
+        self.logger.debug(f"parent : {parent}")
+
+        all_matches = []
+        for each_path in parent.iterdir():
+            self.logger.debug(each_path.name)
+            if len(each_path.name) < len(name):
+                continue
+            potential_match = each_path.name[: len(name)]
+            if potential_match == name:
+                self.logger.debug(f"potential match {potential_match}")
+                all_matches.append(str(each_path))
+        self.logger.debug(all_matches)
+        return all_matches
+
+    def init_cmds(self):
+        system_prompt_parser = KomandParser()
+        system_prompt_parser.add_argument("prompt")
+        system_prompt_cmd = Command(
+            self.change_agent_config_handler, system_prompt_parser
+        )
+
+        load_config_parser = KomandParser()
+        load_config_parser.add_argument("dir", completer=self.complete_path)
+        load_config_cmd = Command(self.reload_config, load_config_parser)
+        self.all_cmds = {
+            "/system_prompt": system_prompt_cmd,
+            "/load_config": load_config_cmd,
+        }

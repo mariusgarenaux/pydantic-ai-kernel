@@ -2100,6 +2100,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pydantic-ai" },
     { name = "pyyaml" },
+    { name = "statikomand" },
 ]
 
 [package.metadata]
@@ -2108,6 +2109,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.12.3" },
     { name = "pydantic-ai", specifier = ">=1.34.0" },
     { name = "pyyaml", specifier = ">=6.0.3" },
+    { name = "statikomand", specifier = ">=0.0.3" },
 ]
 
 [[package]]
@@ -2771,6 +2773,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/ba/b8/73a0e6a6e079a9d9c
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d9/52/1064f510b141bd54025f9b55105e26d1fa970b9be67ad766380a3c9b74b0/starlette-0.50.0-py3-none-any.whl", hash = "sha256:9e5391843ec9b6e472eed1365a78c8098cfceb7a74bfd4d6b1c0c0095efb3bca", size = 74033, upload-time = "2025-11-01T15:25:25.461Z" },
 ]
+
+[[package]]
+name = "statikomand"
+version = "0.0.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f9/36/4365b3b36facb8d8ccc48b23a795f41c78d2a1826d4d450c8ec048820718/statikomand-0.0.3.tar.gz", hash = "sha256:f4cf6aa31460b6322a385f8397a358c34903da09feb6f5c7e0f7aa562cb8f4ec", size = 4597, upload-time = "2026-02-12T18:27:20.601Z" }
 
 [[package]]
 name = "temporalio"

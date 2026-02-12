@@ -77,7 +77,7 @@ model:
 
 and specify API key in environment variable.
 
-Scheme can be found [here](pydantic_ai_kernel/config_scheme.json).
+Scheme can be found [here](https://github.com/mariusgarenaux/pydantic-ai-kernel/blob/main/pydantic_ai_kernel/config_scheme.json).
 
 ## Creating your own agents
 
@@ -85,7 +85,7 @@ In order to create custom agents, you just need to create a new kernel, and subc
 
 You can then create tools, or any mechanism you want. We provide here juste the communication protocol between agent and user, through well known and proven jupyter kernels.
 
-The default configuration file for any subclass of PydanticAIBaseKernel will be fetched from : `~/.jupyter/jupyter_<kernel_name>_config.yaml`; and must follows the same scheme as the one of [pydantic_ai_kernel](pydantic_ai_kernel/config_scheme.json). But it can also be specify by sending a message to the kernel : `/load_config <path_to_config_file>`
+The default configuration file for any subclass of PydanticAIBaseKernel will be fetched from : `~/.jupyter/jupyter_<kernel_name>_config.yaml`; and must follows the same scheme as the one of [pydantic_ai_kernel](https://github.com/mariusgarenaux/pydantic-ai-kernel/blob/main/pydantic_ai_kernel/config_scheme.json). But it can also be specify by sending a message to the kernel : `/load_config <path_to_config_file>`
 
 ### Developer - Debug
 
