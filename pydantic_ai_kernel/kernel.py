@@ -17,6 +17,7 @@ from pydantic_ai import (
     ModelResponse,
     TextPart,
     FunctionToolset,
+    Tool,
 )
 from statikomand import KomandParser
 
@@ -101,13 +102,19 @@ class PydanticAIBaseKernel(Kernel):
         else:
             self.logger = self.log
 
+        self.agent_config = agent_config
+        self.tools: list[Tool] = tools if tools is not None else []
+        self.toolsets = toolsets
+        self.output_type = output_type
+
         try:
-            if agent_config is None:
-                agent_config = self.load_config()
-            self.agent = self.create_agent(agent_config, tools, toolsets, output_type)
+            if self.agent_config is None:
+                self.agent_config = self.load_config()
+
+            self.agent = self.create_agent()
             self.message_history: list[ModelMessage] = [
                 ModelRequest(
-                    parts=[SystemPromptPart(content=agent_config.system_prompt)]
+                    parts=[SystemPromptPart(content=self.agent_config.system_prompt)]
                 )
             ]
         except Exception as e:
@@ -118,8 +125,8 @@ class PydanticAIBaseKernel(Kernel):
         self.init_cmds()
 
     def reload_config(self, args):
-        new_conf = self.load_config(config_dir=args.dir)
-        agent = self.create_agent(new_conf)
+        self.agent_config = self.load_config(config_dir=args.dir)
+        agent = self.create_agent()
         self.logger.debug(agent)
         self.agent = agent
         self.message_history = []
@@ -162,25 +169,21 @@ class PydanticAIBaseKernel(Kernel):
                 f"Could not load and validate config file for agent at {dir}."
             ) from e
 
-    def create_agent(
-        self,
-        agent_config: AgentConfig,
-        tools: list | None = None,
-        toolsets: list[FunctionToolset] | None = None,
-        output_type=str,
-    ) -> Agent:
+    def create_agent(self) -> Agent:
+        if self.agent_config is None:
+            raise ValueError("Could not create agent without configuration file.")
         try:
-            model = agent_config.model.get_model
+            model = self.agent_config.model.get_model
         except NotImplementedError as e:
-            model = agent_config.model.model_name
+            model = self.agent_config.model.model_name
             logger.warning(e)
         agent = Agent(
             model,
-            output_type=output_type,
-            system_prompt=agent_config.system_prompt,
-            tools=tools if tools is not None else (),
-            toolsets=toolsets,
-            name=agent_config.agent_name,
+            output_type=self.output_type,
+            system_prompt=self.agent_config.system_prompt,
+            tools=self.tools,
+            toolsets=self.toolsets,
+            name=self.agent_config.agent_name,
         )
 
         return agent
@@ -207,19 +210,19 @@ class PydanticAIBaseKernel(Kernel):
                         f"Could not add message {each_message} to history"
                     )
 
-    def change_agent_config_handler(self, args):
-        """
-        Changes agent config directly by sending messages to kernel
-        """
-        new_agent = Agent(
-            model=self.agent.model,
-            system_prompt=args.prompt,
-            output_type=self.agent.output_type,
-            name=self.agent.name,
-        )
+    # def change_agent_config_handler(self, args):
+    #     """
+    #     Changes agent config directly by sending messages to kernel
+    #     """
+    #     new_agent = Agent(
+    #         model=self.agent.model,
+    #         system_prompt=args.prompt,
+    #         output_type=self.agent.output_type,
+    #         name=self.agent.name,
+    #     )
 
-        self.agent = new_agent
-        self.message_history = []
+    #     self.agent = new_agent
+    #     self.message_history = []
 
     async def do_execute(  # pyright: ignore
         self,
@@ -230,19 +233,40 @@ class PydanticAIBaseKernel(Kernel):
         allow_stdin=False,
     ):
         try:
-            splitted_code = code.split(" ")
-            cmd = splitted_code[0]
-            self.logger.debug(f"Here cmd : {cmd}")
-            if cmd in self.all_cmds:
-                cmd_obj = self.all_cmds[cmd]
-                splitted = shlex.split(code)
-                self.logger.debug(f"shlex splitted {splitted}")
-                args = cmd_obj.parser.parse(code.removeprefix(cmd))
-                self.logger.debug(f"command : {cmd} {args}, {cmd_obj.handler}")
-                cmd_out = cmd_obj.handler(args)
-                cmd_out = "" if cmd_out is None else cmd_out
+            splitted = code.split(maxsplit=1)
+            if len(splitted) == 0:
+                self.send_response(
+                    self.iopub_socket,
+                    "execute_result",
+                    {
+                        "execution_count": self.execution_count,
+                        "data": {"text/plain": ""},
+                    },
+                )
+                return {
+                    "status": "ok",
+                    "execution_count": self.execution_count,
+                    "payload": [],
+                    "user_expressions": {},
+                }
+            cmd_name = splitted[0]
+            self.logger.debug(f"Command : {cmd_name}")
+            if cmd_name in self.all_cmds:
+                cmd_obj = self.all_cmds[cmd_name]
+                if len(splitted) > 0:
+                    args_str = splitted[1]
+                else:
+                    args_str = ""
 
-                self.logger.debug(f"cmd out : {cmd_out}")
+                tokens_list = shlex.split(args_str)
+                self.logger.debug(f"List of tokens for command : `{tokens_list}`")
+                args = cmd_obj.parser.parse_args(tokens_list)
+                self.logger.debug(
+                    f"Running command `{cmd_name}`, with args `{vars(args)}`"
+                )
+                cmd_out = cmd_obj.handler(args)
+
+                self.logger.debug(f"Command's output : `{cmd_out}`")
                 self.send_response(
                     self.iopub_socket,
                     "execute_result",
@@ -363,8 +387,9 @@ class PydanticAIBaseKernel(Kernel):
 
     def do_complete(self, code: str, cursor_pos: int):
         try:
-            splitted = code.split(" ")
-            self.logger.debug(f"do complete , splitted = {splitted}")
+            ends_with_space = code[-1] == " "
+            splitted = code.split(maxsplit=1)
+            self.logger.debug(f"Splitted code for completion : `{splitted}`")
             if len(splitted) == 0:
                 return {
                     "status": "ok",
@@ -373,20 +398,34 @@ class PydanticAIBaseKernel(Kernel):
                     "cursor_end": cursor_pos,
                     "metadata": {},
                 }
-            if len(splitted) == 1:
+
+            if len(splitted) == 1 and not ends_with_space:
                 return self.complete_first_word(splitted, cursor_pos)
+
+            if cursor_pos != len(code):
+                return {
+                    "status": "ok",
+                    "matches": [],
+                    "cursor_start": cursor_pos,
+                    "cursor_end": cursor_pos,
+                    "metadata": {},
+                }
+
             if splitted[0] in self.all_cmds:
                 cmd_name = splitted[0]
-                word_to_complete = splitted[-1]
-                self.logger.debug(f"Completing command {cmd_name} | {word_to_complete}")
-                all_matches = self.all_cmds[cmd_name].parser.do_complete(
-                    word_to_complete
-                )
+                arg_str = splitted[1] if len(splitted) > 1 else " "
+                args = shlex.split(arg_str)
+                if ends_with_space:  # shlex remove space, but we add an empty str
+                    # to have completion even for empty strings
+                    args += [""]
+                self.logger.debug(f"Completing token list {args}")
+                all_matches = self.all_cmds[cmd_name].parser.complete(args)
+                self.logger.debug(f"Matches {all_matches}")
 
                 return {
                     "status": "ok",
                     "matches": all_matches,
-                    "cursor_start": cursor_pos - len(word_to_complete),
+                    "cursor_start": cursor_pos - len(args[-1]),
                     "cursor_end": cursor_pos,
                     "metadata": {},
                 }
@@ -414,6 +453,7 @@ class PydanticAIBaseKernel(Kernel):
                 # Information that frontend plugins might use for extra display information about completions.
                 "metadata": {},
             }
+
         except Exception as e:
             self.send_response(
                 self.iopub_socket,
@@ -444,6 +484,9 @@ class PydanticAIBaseKernel(Kernel):
     def do_shutdown(self, restart):
         return super().do_shutdown(restart)
 
+    def load_config_cmd_completer(self, word: str, rank: int | None) -> list[str]:
+        return self.complete_path(word)
+
     def complete_path(self, path: str):
         path_obj = Path(path)
         self.logger.debug(str(path_obj))
@@ -470,16 +513,16 @@ class PydanticAIBaseKernel(Kernel):
         return all_matches
 
     def init_cmds(self):
-        system_prompt_parser = KomandParser()
-        system_prompt_parser.add_argument("prompt")
-        system_prompt_cmd = Command(
-            self.change_agent_config_handler, system_prompt_parser
-        )
+        # system_prompt_parser = KomandParser()
+        # system_prompt_parser.add_argument("prompt")
+        # system_prompt_cmd = Command(
+        #     self.change_agent_config_handler, system_prompt_parser
+        # )
 
-        load_config_parser = KomandParser()
-        load_config_parser.add_argument("dir", completer=self.complete_path)
+        load_config_parser = KomandParser(prog="load_config")
+        load_config_parser.add_argument("dir", completer=self.load_config_cmd_completer)
         load_config_cmd = Command(self.reload_config, load_config_parser)
         self.all_cmds = {
-            "/system_prompt": system_prompt_cmd,
+            # "/system_prompt": system_prompt_cmd,
             "/load_config": load_config_cmd,
         }
