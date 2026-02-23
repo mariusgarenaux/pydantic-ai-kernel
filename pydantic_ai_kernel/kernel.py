@@ -118,7 +118,7 @@ class PydanticAIBaseKernel(Kernel):
                 )
             ]
         except Exception as e:
-            self.logger.debug(f"Could not load default config {e}.")
+            self.logger.debug(f"Could not load default config `{e}`")
             self.agent = None
 
         self.all_messages_ids = []
@@ -250,10 +250,10 @@ class PydanticAIBaseKernel(Kernel):
                     "user_expressions": {},
                 }
             cmd_name = splitted[0]
-            self.logger.debug(f"Command : {cmd_name}")
+            self.logger.debug(f"Command : `{cmd_name}`")
             if cmd_name in self.all_cmds:
                 cmd_obj = self.all_cmds[cmd_name]
-                if len(splitted) > 0:
+                if len(splitted) > 1:
                     args_str = splitted[1]
                 else:
                     args_str = ""
@@ -265,7 +265,8 @@ class PydanticAIBaseKernel(Kernel):
                     f"Running command `{cmd_name}`, with args `{vars(args)}`"
                 )
                 cmd_out = cmd_obj.handler(args)
-
+                if cmd_out is None:
+                    cmd_out = ""
                 self.logger.debug(f"Command's output : `{cmd_out}`")
                 self.send_response(
                     self.iopub_socket,
@@ -489,7 +490,6 @@ class PydanticAIBaseKernel(Kernel):
 
     def complete_path(self, path: str):
         path_obj = Path(path)
-        self.logger.debug(str(path_obj))
         if len(path) > 0 and path[-1] == "/":
             parent = path_obj
             name = ""
@@ -497,19 +497,13 @@ class PydanticAIBaseKernel(Kernel):
             parent = path_obj.parent
             name = path_obj.name
 
-        self.logger.debug(f"last element :{name}")
-        self.logger.debug(f"parent : {parent}")
-
         all_matches = []
         for each_path in parent.iterdir():
-            self.logger.debug(each_path.name)
             if len(each_path.name) < len(name):
                 continue
             potential_match = each_path.name[: len(name)]
             if potential_match == name:
-                self.logger.debug(f"potential match {potential_match}")
                 all_matches.append(str(each_path))
-        self.logger.debug(all_matches)
         return all_matches
 
     def init_cmds(self):
