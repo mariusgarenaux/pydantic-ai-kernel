@@ -73,7 +73,7 @@ class PydanticAIBaseKernel(Kernel):
     language_info = {
         "name": "pydantic_ai",
         "mimetype": "text/plain",
-        "file_extension": ".txt",
+        "file_extension": ".ai",
     }
     banner = "Pydantic AI Base Kernel"
 
