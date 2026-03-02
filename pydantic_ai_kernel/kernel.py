@@ -2,7 +2,7 @@ from .agent_config import AgentConfig
 
 import traceback
 import shlex
-from ipykernel.kernelbase import Kernel
+from metakernel import MetaKernel
 from pathlib import Path
 import logging
 import os
@@ -61,7 +61,7 @@ class Command:
     parser: KomandParser
 
 
-class PydanticAIBaseKernel(Kernel):
+class PydanticAIBaseKernel(MetaKernel):
     """
     Kernel wrapper for pydantic agents. It is meant to be subclassed.
     """
@@ -227,6 +227,9 @@ class PydanticAIBaseKernel(Kernel):
 
     #     self.agent = new_agent
     #     self.message_history = []
+
+    async def do_execute_direct(self, code, silent=False):
+        return super().do_execute_direct(code, silent)
 
     async def do_execute(  # pyright: ignore
         self,
