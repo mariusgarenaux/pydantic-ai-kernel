@@ -22,7 +22,7 @@ from pydantic_ai import (
 from statikomand import KomandParser
 
 from dataclasses import dataclass
-from typing import Literal, Type, Callable
+from typing import Literal, Type, Callable, Sequence
 from typing_extensions import TypedDict
 
 
@@ -122,6 +122,7 @@ class PydanticAIBaseKernel(Kernel):
             self.agent = None
 
         self.all_messages_ids = []
+        self.kernel_history: list[tuple] = []
         self.init_cmds()
 
     def reload_config(self, args):
@@ -139,6 +140,9 @@ class PydanticAIBaseKernel(Kernel):
         (validation, removing beginning of string, ...).
         """
         return content
+
+    def add_code_to_kernel_history(self, input_code, output):
+        self.kernel_history.append((0, self.execution_count, (input_code, output)))
 
     def load_config(self, config_dir: str | None = None) -> AgentConfig:
         """
@@ -301,12 +305,19 @@ class PydanticAIBaseKernel(Kernel):
                         "payload": [],
                         "user_expressions": {},
                     }
-                agent_answer = await self.agent.run(
-                    code, message_history=self.message_history
-                )
 
-                content = str(agent_answer.output)
-                content = self.post_processing(content)
+                last_text = ""
+                async with self.agent.run_stream(
+                    code, message_history=self.message_history
+                ) as response:
+                    async for text in response.stream_text():
+                        sendable_text = text.removeprefix(last_text)
+                        last_text = text
+                        self.send_response(
+                            self.iopub_socket,
+                            "stream",
+                            {"name": "stdout", "text": sendable_text},
+                        )
 
                 question_id = str(uuid4())
                 answer_id = str(uuid4())
@@ -318,20 +329,13 @@ class PydanticAIBaseKernel(Kernel):
                     },
                     {
                         "role": "assistant",
-                        "content": content,
+                        "content": last_text,
                         "uid": answer_id,
                     },
                 ]
                 self.add_message_to_history(new_messages)
-                self.send_response(
-                    self.iopub_socket,
-                    "execute_result",
-                    {
-                        "execution_count": self.execution_count,
-                        "data": {"text/plain": content},
-                        "metadata": {"new_messages_id": [question_id, answer_id]},
-                    },
-                )
+                self.add_code_to_kernel_history(code, last_text)
+                self.logger.debug(new_messages)
                 return {
                     "status": "ok",
                     "execution_count": self.execution_count,
@@ -481,6 +485,42 @@ class PydanticAIBaseKernel(Kernel):
                 # Information that frontend plugins might use for extra display information about completions.
                 "metadata": {},
             }
+
+    def do_history(
+        self,
+        hist_access_type,
+        output,
+        raw,
+        session=None,
+        start=None,
+        stop=None,
+        n=None,
+        pattern=None,
+        unique=False,
+    ) -> dict:
+        if output:
+            return {
+                # 'ok' if the request succeeded or 'error', with error information as in all other replies.
+                "status": "ok",
+                # A list of 3 tuples, either:
+                # (session, line_number, input) or
+                # (session, line_number, (input, output)),
+                # depending on whether output was False or True, respectively.
+                "history": self.kernel_history,
+            }
+        simple_history = [
+            (session_number, count, input_code)
+            for session_number, count, (input_code, output) in self.kernel_history
+        ]
+        return {
+            # 'ok' if the request succeeded or 'error', with error information as in all other replies.
+            "status": "ok",
+            # A list of 3 tuples, either:
+            # (session, line_number, input) or
+            # (session, line_number, (input, output)),
+            # depending on whether output was False or True, respectively.
+            "history": simple_history,
+        }
 
     def do_shutdown(self, restart):
         return super().do_shutdown(restart)
