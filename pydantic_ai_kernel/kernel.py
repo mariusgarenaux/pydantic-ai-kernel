@@ -44,8 +44,6 @@ def setup_kernel_logger(name, log_dir="~/.pydantic_ai_kernel_logs"):
     return logger
 
 
-logger = setup_kernel_logger(__name__)
-
 
 class ChatMessage(TypedDict):
     """Format of messages sent to the browser."""
@@ -180,7 +178,7 @@ class PydanticAIBaseKernel(MetaKernel):
             model = self.agent_config.model.get_model
         except NotImplementedError as e:
             model = self.agent_config.model.model_name
-            logger.warning(e)
+            self.logger.warning(e)
         agent = Agent(
             model,
             output_type=self.output_type,
