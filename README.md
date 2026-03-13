@@ -1,10 +1,20 @@
 # Pydantic AI Base Kernel
 
-This is wrapper around pydantic-ai agent, that allows to requests it through jupyter kernel.
+This is wrapper around pydantic-ai agent, that allows to requests it through jupyter kernel messaging protocol.
 
 It is meant to be subclassed to create new kernel-based agent, for adding tools or any special application.
 
 ![](https://github.com/mariusgarenaux/pydantic-ai-kernel/blob/main/capture.png?raw=True)
+
+For a basic usage of agents (chatbot), without tools, you can use any instance of this kernel and initialize it with a config file.
+
+Allows for :
+
+- streamed output (thanks to jupyter messaging protocol)
+
+- [configuration of the agent](#configuration-file) (set system prompt, inference provider, ...), through nearly all the inference providers (thanks to pydantic-ai)
+
+- [display the history and tool calling of the agent (with magic command %agent_history)](#access-agent-history)
 
 ## Getting started
 
@@ -31,7 +41,7 @@ By default, kernel starts by looking for a configuration file here :
 But you can also run the kernel as is; and specify the path to a config file by executing the following message in a cell :
 
 ```text
-/load_config <path_to_kernel_config_file>
+%load_config <path_to_kernel_config_file>
 ```
 
 This allows to have different instances of the same kernel, each with its own system prompt and / or inference provider.
@@ -79,17 +89,70 @@ and specify API key in environment variable.
 
 Scheme can be found [here](https://github.com/mariusgarenaux/pydantic-ai-kernel/blob/main/pydantic_ai_kernel/config_scheme.json).
 
+## Access agent history
+
+With the magic command `%agent_history`, you can see the history of the agent (to check for tool calling, ...) :
+
+```text
+In [1]: Hey ! Which tools do you have access to ?
+I have access to a few tools to assist you. Currently, the available tool is:
+
+- **Add**: This tool allows you to add two numbers together.
+
+Let me know how I can assist you! 😊
+In [2]: Add 673763 and 92830
+The sum of 673,763 and 92,830 is **766,593**. 😊
+In [3]: %agent_history
+   ...:
+  System Prompt :
+    │   You are an AI assistant designed to provide concise, accurate, and relevant information. Respond directly to user queries while ensuring clarity and understanding. Engage users in a conversational manner, demonstrating empathy and adaptability to their needs. Avoid unnecessary details, repetition, or embellishments, and focus on delivering solutions efficiently.
+    ╰───────────────────────────────
+  User Prompt :
+    │   Hey ! Which tools do you have access to ?
+    ╰───────────────────────────────
+
+  Text :
+    │   I have access to a few tools to assist you. Currently, the available tool is:
+    │
+    │   - **Add**: This tool allows you to add two numbers together.
+    │
+    │   Let me know how I can assist you! 😊
+    ╰───────────────────────────────
+
+  User Prompt :
+    │   Add 673763 and 92830
+    ╰───────────────────────────────
+
+  Tool Calling :
+    │   Name :add
+    │   Args :{"x": 673763, "y": 92830}
+    ╰───────────────────────────────
+
+  Tool Return :
+    │   add : 766593
+    ╰───────────────────────────────
+
+  Text :
+    │   The sum of 673,763 and 92,830 is **766,593**. 😊
+    ╰───────────────────────────────
+```
+
 ## Creating your own agents
 
-In order to create custom agents, you just need to create a new kernel, and subclass PydanticAIBaseKernel from this library. See an example here : [https://github.com/mariusgarenaux/rudi-kernel]
+In order to create custom agents, you just need to create a new kernel, and subclass PydanticAIBaseKernel from this library. See an example here : (agentikernel)[https://github.com/mariusgarenaux/agentikernel].
 
 You can then create tools, or any mechanism you want. We provide here juste the communication protocol between agent and user, through well known and proven jupyter kernels.
 
-The default configuration file for any subclass of PydanticAIBaseKernel will be fetched from : `~/.jupyter/jupyter_<kernel_name>_config.yaml`; and must follows the same scheme as the one of [pydantic_ai_kernel](https://github.com/mariusgarenaux/pydantic-ai-kernel/blob/main/pydantic_ai_kernel/config_scheme.json). But it can also be specify by sending a message to the kernel : `/load_config <path_to_config_file>`
+The default configuration file for any subclass of PydanticAIBaseKernel will be fetched from : `~/.jupyter/jupyter_<kernel_name>_config.yaml`; and must follows the same scheme as the one of [pydantic_ai_kernel](https://github.com/mariusgarenaux/pydantic-ai-kernel/blob/main/pydantic_ai_kernel/config_scheme.json). But it can also be specified by sending a message to the kernel : `%load_config <path_to_config_file>`
+
+### Adding magic commands
+
+Thanks to `metakernel`, you can add magic commands in any subclass of pydantic-ai-kernel. You just need to create a <name>\_magic.py in a magics directory (see [https://metakernel.readthedocs.io/en/latest/new_magic/](https://metakernel.readthedocs.io/en/latest/new_magic/)).
+To add the magic to the whitelisted magics of the kernel, append the class name to `self.authorized_magics_names` in the initialization of the subclass, after having initialized the super class.
 
 ### Developer - Debug
 
-If you want to see the logs of the kernel; export the environment variable `PYDANTIC_AI_KERNEL_LOG` to 'True'. You also need to create a dir to save logs at `~/.pydantic_ai_kernel_logs`. For subclasses, logger can be accessed with `self.logger` (e.g. `self.logger.debug('hey')`).
+If you want to see the logs of the kernel; export the environment variable `PYDANTIC_AI_KERNEL_LOG` to 'True'. You also need to create a dir to save logs at `~/.pydantic_ai_kernel_logs`. For subclasses, logger can be accessed with `self.log` (e.g. `self.log.debug('hey')`).
 
 ## Dealing with multi-agents
 

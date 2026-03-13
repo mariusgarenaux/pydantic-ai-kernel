@@ -1,72 +1,57 @@
 from .agent_config import AgentConfig
 
-import traceback
-import shlex
-from metakernel import MetaKernel
+import importlib
+import glob
+import sys
+import os
+from metakernel import MetaKernel, Magic
 from pathlib import Path
 import logging
-import os
-from uuid import uuid4
 import yaml
 from pydantic_ai import (
     Agent,
     ModelRequest,
-    UserPromptPart,
     ModelMessage,
     SystemPromptPart,
-    ModelResponse,
-    TextPart,
     FunctionToolset,
     Tool,
 )
-from statikomand import KomandParser
-
-from dataclasses import dataclass
-from typing import Literal, Type, Callable, Sequence
-from typing_extensions import TypedDict
+from typing import Type, Any
 
 
-def setup_kernel_logger(name, log_dir="~/.pydantic_ai_kernel_logs"):
+def add_custom_logger_handler(
+    logger: logging.Logger, log_dir="~/.pydantic_ai_kernel_logs/pydantic_ai.log"
+):
+    """
+    Add a custom handlers to the metakernel logger; located
+    in ~/.pydantic_ai_kernel_logs dir
+    """
     log_dir = Path(log_dir).expanduser()
-
-    if not os.path.isdir(log_dir):
-        raise Exception(f"Please create a dir for kernel logs at {log_dir}")
-    logger = logging.getLogger(name)
-    logger.setLevel(logging.DEBUG)
-    logger.propagate = False
-
-    if not logger.handlers:
-        fh = logging.FileHandler(log_dir / f"{name}.log", encoding="utf-8")
-        fmt = logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s")
-        fh.setFormatter(fmt)
-        logger.addHandler(fh)
-
-    return logger
-
-
-
-class ChatMessage(TypedDict):
-    """Format of messages sent to the browser."""
-
-    role: Literal["user", "assistant"]
-    uid: str
-    content: str
-
-
-@dataclass
-class Command:
-    handler: Callable
-    parser: KomandParser
+    fh = logging.FileHandler(log_dir, encoding="utf-8")
+    fmt = logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s")
+    fh.setFormatter(fmt)
+    logger.addHandler(fh)
+    logger.setLevel(logging.INFO)
 
 
 class PydanticAIBaseKernel(MetaKernel):
     """
-    Kernel wrapper for pydantic agents. It is meant to be subclassed.
+    Kernel wrapper for pydantic agents. Allows to interact with an AI agent
+    through jupyter kernel messaging protocol.
+
+    Allows to access agent history (tool calling history). Thanks to pydantic-ai
+    library, nearly all inference providers are supported.
+    With metakernel magics, you can load a new config file.
+
+    Most of the metakernel magics are disabled on purpose.
     """
 
     implementation = "PydanticAI Base Agent Kernel"
     implementation_version = "1.0"
     language = "no-op"
+    help_suffix = (
+        "♫"  # unusual suffix on purpose, because ? is very common in natural language
+    )
     language_version = "0.1"
     language_info = {
         "name": "pydantic_ai",
@@ -79,27 +64,51 @@ class PydanticAIBaseKernel(MetaKernel):
         self,
         kernel_name: str = "pydantic_ai",
         agent_config: AgentConfig | None = None,
-        tools: list | None = None,
+        tools: list[Tool] | None = None,
         toolsets: list[FunctionToolset] | None = None,
         output_type: Type = str,
+        authorized_magics_names: list[str] | None = None,
+        additional_agent_kwargs: dict[str, Any] | None = None,
         **kwargs,
     ):
-        super().__init__(**kwargs)
-
-        self.kernel_name = kernel_name
-
-        should_custom_log = os.environ.get("PYDANTIC_AI_KERNEL_LOG", "False")
-        should_custom_log = (
-            True if should_custom_log in ["True", "true", "1"] else False
+        """
+        Parameters :
+        ---
+            - kernel_name (str = `pydantic_ai`) : the name of kernel. Used for fetching
+                default config file. TODO : sync with metakernel name and default config
+                files
+            - agent_config (AgentConfig | None = None) : the configuration object for the
+                agent. Deals with system prompt, inference provider API, ...
+            - tools (list[Tool] | None = None) : list of pydantic-ai tools, which can be
+                given to the agent on startup. Useful for subclasses.
+            - toolsets (list[FunctionToolset] | None = None) : list of toolsets given to
+                the agent on startup. Useful for subclasses.
+            - output_type (Type = str) : python Type for a constrained output of the agent.
+                See pydantic-ai documentation.
+            - authorized_magics_names (list[str] | None = None) : Useful for subclasses.
+                List of class names for the magics you want to whitelist for this kernel.
+                By default, all non-whitelisted magics are not loaded. You must manually
+                add a class name (e.g. FileMagic, ...) to have it running on this kernel.
+            - additional_agent_kwargs (dict[str, Any] | None = None) : any kwargs which
+                will be given to pydantic-ai agent initialization.
+        """
+        if authorized_magics_names is None:
+            authorized_magics_names = []
+        authorized_magics_names += [
+            "HelpMagic",
+            "MagicMagic",
+            "LoadConfigMagic",
+            "AgentHistoryMagic",
+        ]
+        self.authorized_magics_names = authorized_magics_names
+        self.additional_agent_kwargs = (
+            additional_agent_kwargs if additional_agent_kwargs else {}
         )
 
-        if should_custom_log:
-            logger = setup_kernel_logger(__name__)
-            logger.debug("Started kernel and initalized logger")
-            self.logger = logger
-        else:
-            self.logger = self.log
-
+        super().__init__(**kwargs)
+        self.kernel_name = kernel_name
+        if os.getenv("PYDANTIC_AI_KERNEL_LOG", False):
+            add_custom_logger_handler(self.log)
         self.agent_config = agent_config
         self.tools: list[Tool] = tools if tools is not None else []
         self.toolsets = toolsets
@@ -116,51 +125,74 @@ class PydanticAIBaseKernel(MetaKernel):
                 )
             ]
         except Exception as e:
-            self.logger.debug(f"Could not load default config `{e}`")
+            self.log.debug(f"Could not load default config `{e}`")
             self.agent = None
-
+        self.agent_history = []
         self.all_messages_ids = []
-        self.kernel_history: list[tuple] = []
-        self.init_cmds()
+        self.log.info("Initialization of Pydantic AI Kernel is successful.")
 
-    def reload_config(self, args):
-        self.agent_config = self.load_config(config_dir=args.dir)
-        agent = self.create_agent()
-        self.logger.debug(agent)
-        self.agent = agent
-        self.message_history = []
-        return "Updated config file"
-
-    def post_processing(self, content: str):
+    def reload_magics(self) -> None:
         """
-        Abstract method that can be overwritten in order to implement
-        post-processing on agent output.
-        (validation, removing beginning of string, ...).
+        Override metakernel `reload_magics` to fix the magics not being
+        propagated through subclasses. Subclasses of pydantic-ai-kernel
+        could not by default access pydantic-ai-kernel.
+
+        We first reload_magics with the official method, and then we seek
+        for a magics dir **within** this file's directory.
         """
-        return content
+        super().reload_magics()
+        try:
+            this_class_magics_dir = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), "magics"
+            )
+            sys.path.append(this_class_magics_dir)
+            this_class_magic_files = glob.glob(
+                os.path.join(this_class_magics_dir, "*.py")
+            )
+            for this_class_magic in this_class_magic_files:
+                basename = os.path.basename(this_class_magic)
+                if basename == "__init__.py":
+                    continue
+                module = __import__(os.path.splitext(basename)[0])
+                importlib.reload(module)
+                module.register_magics(self)
+        except Exception as e:
+            self.log.debug(
+                f"PydanticAIBaseKernel could not register its own magics : `{e}`."
+            )
 
-    def add_code_to_kernel_history(self, input_code, output):
-        self.kernel_history.append((0, self.execution_count, (input_code, output)))
+    def register_magics(self, magic_klass: type[Magic]) -> None:
+        """
+        Override the metakernel 'register_magics', to prevent of
+        loading non-whitelisted magics.
 
-    def load_config(self, config_dir: str | None = None) -> AgentConfig:
+        Parameters :
+        ---
+            - magic_klass: The subclass of Magic
+        """
+        if magic_klass.__name__ in self.authorized_magics_names:
+            self.log.info(f"Adding magic : {magic_klass}")
+            super().register_magics(magic_klass)
+
+    def load_config(self, path: str | None = None) -> AgentConfig:
         """
         Try to load config file at ~/.jupyter/jupyter_<kernel_name>_config.yaml.
         Returns the validated config object, or raise an Error.
 
         Parameters :
         ---
-            - config_dir (Optional[str]) : path to the config file. If None,
+            - path (Optional[str]) : path to the config file. If None,
                 is set to ~/.jupyter/jupyter_<kernel_name>_config.yaml
 
         Returns :
         ---
-            AgentConfig pydantic BaseMode, validated
+            AgentConfig pydantic BaseModel, validated
         """
-        if config_dir is None:
+        if path is None:
             home = Path.home()
             dir = home / f".jupyter/jupyter_{self.kernel_name}_config.yaml"
         else:
-            dir = config_dir
+            dir = path
         try:
             with open(dir, "rt") as f:
                 conf = yaml.safe_load(f)
@@ -172,13 +204,16 @@ class PydanticAIBaseKernel(MetaKernel):
             ) from e
 
     def create_agent(self) -> Agent:
+        """
+        Creates the pydantic-ai agent, from config file.
+        """
         if self.agent_config is None:
             raise ValueError("Could not create agent without configuration file.")
         try:
             model = self.agent_config.model.get_model
         except NotImplementedError as e:
             model = self.agent_config.model.model_name
-            self.logger.warning(e)
+            self.log.warning(e)
         agent = Agent(
             model,
             output_type=self.output_type,
@@ -186,378 +221,56 @@ class PydanticAIBaseKernel(MetaKernel):
             tools=self.tools,
             toolsets=self.toolsets,
             name=self.agent_config.agent_name,
+            **self.additional_agent_kwargs,
         )
 
         return agent
 
-    def add_message_to_history(self, messages: list):
-        for each_message in messages:
-            if each_message["uid"] in self.all_messages_ids:
-                continue
-            match each_message["role"]:
-                case "user":
-                    parsed_message = ModelRequest(
-                        parts=[UserPromptPart(content=each_message["content"])]
-                    )
-                    self.message_history.append(parsed_message)
-                    self.all_messages_ids.append(each_message["uid"])
-                case "assistant":
-                    parsed_message = ModelResponse(
-                        parts=[TextPart(content=each_message["content"])]
-                    )
-                    self.message_history.append(parsed_message)
-                    self.all_messages_ids.append(each_message["uid"])
-                case _:
-                    self.logger.debug(
-                        f"Could not add message {each_message} to history"
-                    )
+    async def do_execute_direct(self, code: str, silent=False):
+        """
+        Sends the code to the agent, retrieve the output from
+        an async loop, and stream it to IOPub channel.
 
-    # def change_agent_config_handler(self, args):
-    #     """
-    #     Changes agent config directly by sending messages to kernel
-    #     """
-    #     new_agent = Agent(
-    #         model=self.agent.model,
-    #         system_prompt=args.prompt,
-    #         output_type=self.agent.output_type,
-    #         name=self.agent.name,
-    #     )
-
-    #     self.agent = new_agent
-    #     self.message_history = []
-
-    async def do_execute_direct(self, code, silent=False):
-        return super().do_execute_direct(code, silent)
-
-    async def do_execute(  # pyright: ignore
-        self,
-        code: str,
-        silent,
-        store_history=True,
-        user_expressions=None,
-        allow_stdin=False,
-    ):
+        Parameters :
+        ---
+            - code (str): the code (prompt) which is sent to the agent
+            - silent (bool = False) : whether to execute the code silently.
+                See https://jupyter-client.readthedocs.io/en/stable/messaging.html#execute
+        """
         try:
-            splitted = code.split(maxsplit=1)
-            if len(splitted) == 0:
-                self.send_response(
-                    self.iopub_socket,
-                    "execute_result",
-                    {
-                        "execution_count": self.execution_count,
-                        "data": {"text/plain": ""},
-                    },
+            if self.agent is None:
+                raise Exception(
+                    r"Load config file before using the agent. Send `%load_config <config_dir>`. See https://github.com/mariusgarenaux/pydantic-ai-kernel to get config scheme."
                 )
-                return {
-                    "status": "ok",
-                    "execution_count": self.execution_count,
-                    "payload": [],
-                    "user_expressions": {},
-                }
-            cmd_name = splitted[0]
-            self.logger.debug(f"Command : `{cmd_name}`")
-            if cmd_name in self.all_cmds:
-                cmd_obj = self.all_cmds[cmd_name]
-                if len(splitted) > 1:
-                    args_str = splitted[1]
-                else:
-                    args_str = ""
+            last_text = ""
+            async with self.agent.run_stream(
+                code, message_history=self.agent_history
+            ) as response:
+                async for text in response.stream_text():
+                    sendable_text = text.removeprefix(last_text)
+                    last_text = text
+                    self.Print(sendable_text, sep="", end="")
 
-                tokens_list = shlex.split(args_str)
-                self.logger.debug(f"List of tokens for command : `{tokens_list}`")
-                args = cmd_obj.parser.parse_args(tokens_list)
-                self.logger.debug(
-                    f"Running command `{cmd_name}`, with args `{vars(args)}`"
-                )
-                cmd_out = cmd_obj.handler(args)
-                if cmd_out is None:
-                    cmd_out = ""
-                self.logger.debug(f"Command's output : `{cmd_out}`")
-                self.send_response(
-                    self.iopub_socket,
-                    "execute_result",
-                    {
-                        "execution_count": self.execution_count,
-                        "data": {"text/plain": cmd_out},
-                    },
-                )
-                return {
-                    "status": "ok",
-                    "execution_count": self.execution_count,
-                    "payload": [],
-                    "user_expressions": {},
-                }
+            self.agent_history = response.all_messages()
+        except Exception as e:
+            self.Error_display(e)
+
+    async def do_is_complete(self, code: str) -> dict[str, str]:
+        """
+        Overwrites metakernel do_is_complete to have :
+            - magic commands requires an empty line (as usual)
+            - non-magic commands do not need an empty line
+            - non-magic commands can be multiline if the line
+                ends with ' '.
+        """
+        if code.startswith(self.magic_prefixes["magic"]):
+            ## force requirement to end with an empty line
+            if code.endswith("\n"):
+                return {"status": "complete"}
             else:
-                if self.agent is None:
-                    self.send_response(
-                        self.iopub_socket,
-                        "error",
-                        {
-                            "ename": "",
-                            "evalue": "",
-                            "traceback": [
-                                "Load config file before using the agent. Send `/load_config <config_dir>`. See https://github.com/mariusgarenaux/pydantic-ai-kernel to get config scheme."
-                            ],
-                        },
-                    )
-                    return {
-                        "status": "error",
-                        "execution_count": self.execution_count,
-                        "payload": [],
-                        "user_expressions": {},
-                    }
-
-                last_text = ""
-                async with self.agent.run_stream(
-                    code, message_history=self.message_history
-                ) as response:
-                    async for text in response.stream_text():
-                        sendable_text = text.removeprefix(last_text)
-                        last_text = text
-                        self.send_response(
-                            self.iopub_socket,
-                            "stream",
-                            {"name": "stdout", "text": sendable_text},
-                        )
-
-                question_id = str(uuid4())
-                answer_id = str(uuid4())
-                new_messages = [
-                    {
-                        "role": "user",
-                        "content": code,
-                        "uid": question_id,
-                    },
-                    {
-                        "role": "assistant",
-                        "content": last_text,
-                        "uid": answer_id,
-                    },
-                ]
-                self.add_message_to_history(new_messages)
-                self.add_code_to_kernel_history(code, last_text)
-                self.logger.debug(new_messages)
-                return {
-                    "status": "ok",
-                    "execution_count": self.execution_count,
-                    "payload": [],
-                    "user_expressions": {},
-                }
-        except Exception as e:
-            self.send_response(
-                self.iopub_socket,
-                "error",
-                {
-                    "ename": "",
-                    "evalue": "",
-                    "traceback": traceback.format_exception(e),
-                },
-            )
-            return {
-                "status": "error",
-                "execution_count": self.execution_count,
-                "payload": [],
-                "user_expressions": {},
-            }
-
-    def do_is_complete(self, code):
-        if code.endswith(" "):
-            return {"status": "incomplete", "indent": ""}
-        return {"status": "unknown", "indent": ""}
-
-    def complete_first_word(self, splitted_code: list[str], cursor_pos: int):
-        first_word = splitted_code[0]
-        all_matches = []
-        for each_cmd in self.all_cmds:
-            if len(each_cmd) < len(first_word):
-                continue
-            potential_match = each_cmd[: len(first_word)]
-            self.logger.debug(f"potential match : {potential_match}, {each_cmd}")
-            if potential_match == first_word:
-                all_matches.append(each_cmd)
-        return {
-            # status should be 'ok' unless an exception was raised during the request,
-            # in which case it should be 'error', along with the usual error message content
-            # in other messages.
-            "status": "ok",
-            # The list of all matches to the completion request, such as
-            # ['a.isalnum', 'a.isalpha'] for the above example.
-            "matches": all_matches,
-            # The range of text that should be replaced by the above matches when a completion is accepted.
-            # typically cursor_end is the same as cursor_pos in the request.
-            "cursor_start": cursor_pos - len(first_word),
-            "cursor_end": cursor_pos,
-            # Information that frontend plugins might use for extra display information about completions.
-            "metadata": {},
-        }
-
-    def do_complete(self, code: str, cursor_pos: int):
-        try:
-            ends_with_space = code[-1] == " "
-            splitted = code.split(maxsplit=1)
-            self.logger.debug(f"Splitted code for completion : `{splitted}`")
-            if len(splitted) == 0:
-                return {
-                    "status": "ok",
-                    "matches": [],
-                    "cursor_start": cursor_pos,
-                    "cursor_end": cursor_pos,
-                    "metadata": {},
-                }
-
-            if len(splitted) == 1 and not ends_with_space:
-                return self.complete_first_word(splitted, cursor_pos)
-
-            if cursor_pos != len(code):
-                return {
-                    "status": "ok",
-                    "matches": [],
-                    "cursor_start": cursor_pos,
-                    "cursor_end": cursor_pos,
-                    "metadata": {},
-                }
-
-            if splitted[0] in self.all_cmds:
-                cmd_name = splitted[0]
-                arg_str = splitted[1] if len(splitted) > 1 else " "
-                args = shlex.split(arg_str)
-                if ends_with_space:  # shlex remove space, but we add an empty str
-                    # to have completion even for empty strings
-                    args += [""]
-                self.logger.debug(f"Completing token list {args}")
-                all_matches = self.all_cmds[cmd_name].parser.complete(args)
-                self.logger.debug(f"Matches {all_matches}")
-
-                return {
-                    "status": "ok",
-                    "matches": all_matches,
-                    "cursor_start": cursor_pos - len(args[-1]),
-                    "cursor_end": cursor_pos,
-                    "metadata": {},
-                }
-            if splitted[0] not in self.all_cmds:
-                return {
-                    "status": "ok",
-                    "matches": [],
-                    "cursor_start": cursor_pos,
-                    "cursor_end": cursor_pos,
-                    "metadata": {},
-                }
-
-            return {
-                # status should be 'ok' unless an exception was raised during the request,
-                # in which case it should be 'error', along with the usual error message content
-                # in other messages.
-                "status": "ok",
-                # The list of all matches to the completion request, such as
-                # ['a.isalnum', 'a.isalpha'] for the above example.
-                "matches": [],
-                # The range of text that should be replaced by the above matches when a completion is accepted.
-                # typically cursor_end is the same as cursor_pos in the request.
-                "cursor_start": cursor_pos,
-                "cursor_end": cursor_pos,
-                # Information that frontend plugins might use for extra display information about completions.
-                "metadata": {},
-            }
-
-        except Exception as e:
-            self.send_response(
-                self.iopub_socket,
-                "error",
-                {
-                    "ename": "",
-                    "evalue": "",
-                    "traceback": traceback.format_exception(e),
-                },
-            )
-            self.logger.warning(traceback.format_exception(e))
-            return {
-                # status should be 'ok' unless an exception was raised during the request,
-                # in which case it should be 'error', along with the usual error message content
-                # in other messages.
-                "status": "error",
-                # The list of all matches to the completion request, such as
-                # ['a.isalnum', 'a.isalpha'] for the above example.
-                "matches": [],
-                # The range of text that should be replaced by the above matches when a completion is accepted.
-                # typically cursor_end is the same as cursor_pos in the request.
-                "cursor_start": cursor_pos,
-                "cursor_end": cursor_pos,
-                # Information that frontend plugins might use for extra display information about completions.
-                "metadata": {},
-            }
-
-    def do_history(
-        self,
-        hist_access_type,
-        output,
-        raw,
-        session=None,
-        start=None,
-        stop=None,
-        n=None,
-        pattern=None,
-        unique=False,
-    ) -> dict:
-        if output:
-            return {
-                # 'ok' if the request succeeded or 'error', with error information as in all other replies.
-                "status": "ok",
-                # A list of 3 tuples, either:
-                # (session, line_number, input) or
-                # (session, line_number, (input, output)),
-                # depending on whether output was False or True, respectively.
-                "history": self.kernel_history,
-            }
-        simple_history = [
-            (session_number, count, input_code)
-            for session_number, count, (input_code, output) in self.kernel_history
-        ]
-        return {
-            # 'ok' if the request succeeded or 'error', with error information as in all other replies.
-            "status": "ok",
-            # A list of 3 tuples, either:
-            # (session, line_number, input) or
-            # (session, line_number, (input, output)),
-            # depending on whether output was False or True, respectively.
-            "history": simple_history,
-        }
-
-    def do_shutdown(self, restart):
-        return super().do_shutdown(restart)
-
-    def load_config_cmd_completer(self, word: str, rank: int | None) -> list[str]:
-        return self.complete_path(word)
-
-    def complete_path(self, path: str):
-        path_obj = Path(path)
-        if len(path) > 0 and path[-1] == "/":
-            parent = path_obj
-            name = ""
+                return {"status": "incomplete"}
+        # otherwise, how to know is complete?
+        elif code.endswith(" "):
+            return {"status": "incomplete"}
         else:
-            parent = path_obj.parent
-            name = path_obj.name
-
-        all_matches = []
-        for each_path in parent.iterdir():
-            if len(each_path.name) < len(name):
-                continue
-            potential_match = each_path.name[: len(name)]
-            if potential_match == name:
-                all_matches.append(str(each_path))
-        return all_matches
-
-    def init_cmds(self):
-        # system_prompt_parser = KomandParser()
-        # system_prompt_parser.add_argument("prompt")
-        # system_prompt_cmd = Command(
-        #     self.change_agent_config_handler, system_prompt_parser
-        # )
-
-        load_config_parser = KomandParser(prog="load_config")
-        load_config_parser.add_argument("dir", completer=self.load_config_cmd_completer)
-        load_config_cmd = Command(self.reload_config, load_config_parser)
-        self.all_cmds = {
-            # "/system_prompt": system_prompt_cmd,
-            "/load_config": load_config_cmd,
-        }
+            return {"status": "complete"}
