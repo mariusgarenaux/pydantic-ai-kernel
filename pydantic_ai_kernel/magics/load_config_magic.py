@@ -7,7 +7,7 @@ class LoadConfigMagic(Magic):
 
     def line_load_config(self, path) -> None:
         """
-        %load_config - loads the agent config
+        %load_config PATH - loads the agent config
 
         Loads the agent configuration located at path
         """
