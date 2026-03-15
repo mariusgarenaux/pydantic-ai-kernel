@@ -1,6 +1,6 @@
-import textwrap
-
 from pydantic_ai_kernel import PydanticAIBaseKernel
+from pydantic_ai_kernel.utils import put_text_in_box
+
 from pydantic_ai.messages import (
     ModelMessage,
     ModelRequestPart,
@@ -58,35 +58,6 @@ class AgentHistoryMagic(Magic):
             return
         for each_model_message in history:
             self.kernel.Print(nice_model_message_display(each_model_message, not light))
-
-
-def put_text_in_box(text: str, indent: int) -> str:
-    """
-    Creates a string where the text is in a box,
-    with an indentation of indent. Deals with
-    multi-line text.
-
-    Example : (text = 'Hey !', indent=4)
-    ---
-            │   Hey !
-            ╰───────────────────────────────
-
-    Parameters :
-    ---
-        - text (str) : the text inside the box
-        - indent (int) : the indent of the box
-
-    Returns :
-    ---
-        A string that represents the string, in a
-        pretty box.
-    """
-    out = ""
-    preshift = " " * indent + "│" + " " * 3
-
-    out += f"{textwrap.indent(text, preshift, predicate=lambda line: True)}\n"
-    out += " " * indent + "╰─" + "─" * 30 + "\n"
-    return out
 
 
 def nice_display_model_message_part(

@@ -1,5 +1,6 @@
 # Internal Imports
 from .agent_config import AgentConfig
+from .utils import prompt_user_approval
 
 # Base python dependencies
 import importlib
@@ -337,7 +338,7 @@ class PydanticAIBaseKernel(MetaKernel):
                     for call in agent_out.approvals:
                         self.log.info(f"Call : {call}")
                         user_approved = self.ask_user_approval(
-                            f"Approve the call of tool `{call.tool_name}` with args : `{call.args}`"
+                            prompt_user_approval(call)
                         )
                         if not user_approved:
                             result = ToolDenied()

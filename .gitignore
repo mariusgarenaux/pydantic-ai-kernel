@@ -3,4 +3,4 @@
 **/dist
 **/**.egg-info
 **/data_kernelspec
-.pytest_cache/**
+.pytest_cache
