@@ -16,6 +16,8 @@ Allows for :
 
 - [display the history and tool calling of the agent (with magic command %agent_history)](#access-agent-history)
 
+- [user validation for tools that requires it](#add-tools)
+
 ## Getting started
 
 Within a python venv,
@@ -149,6 +151,27 @@ The default configuration file for any subclass of PydanticAIBaseKernel will be 
 
 Thanks to `metakernel`, you can add magic commands in any subclass of pydantic-ai-kernel. You just need to create a <name>\_magic.py in a magics directory (see [https://metakernel.readthedocs.io/en/latest/new_magic/](https://metakernel.readthedocs.io/en/latest/new_magic/)).
 To add the magic to the whitelisted magics of the kernel, append the class name to `self.authorized_magics_names` in the initialization of the subclass, after having initialized the super class.
+
+### Add tools
+
+In any agent subclass, you can define tools, and give them to the super class initializer (see [example_agent](./example_agent/)).
+
+If some tools requires user approval before being executed, you just have to specify it with usual pydantic-ai way :
+
+```python
+def __init__(self, **kwargs):
+    add_tool = Tool(add)
+    mul_tool = Tool(mul, requires_approval=True)  # all tool call
+    # will send an input_request message from frontend
+    super().__init__(
+        kernel_name="example_agent",
+        authorized_magics_names=[
+            "ExampleAdditionalMagic",
+        ],
+        tools=[add_tool, mul_tool],
+        **kwargs,
+    )
+```
 
 ### Developer - Debug
 
