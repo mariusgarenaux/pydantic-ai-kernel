@@ -139,7 +139,7 @@ In [3]: %agent_history
 
 ## Creating your own agents
 
-In order to create custom agents, you just need to create a new kernel, and subclass PydanticAIBaseKernel from this library. See an example here : (agentikernel)[https://github.com/mariusgarenaux/agentikernel].
+In order to create custom agents, you just need to create a new kernel, and subclass PydanticAIBaseKernel from this library. See an example here : [agentikernel](https://github.com/mariusgarenaux/agentikernel), or here [example_agent](./example_agent).
 
 You can then create tools, or any mechanism you want. We provide here juste the communication protocol between agent and user, through well known and proven jupyter kernels.
 

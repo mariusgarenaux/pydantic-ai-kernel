@@ -1,11 +1,17 @@
+# Internal Imports
 from .agent_config import AgentConfig
 
+# Base python dependencies
 import importlib
 import glob
 import sys
 import os
-from metakernel import MetaKernel, Magic
+import traceback
 from pathlib import Path
+from typing import Type, Any, Optional
+
+# External python dependencies
+from metakernel import MetaKernel, Magic
 import logging
 import yaml
 from pydantic_ai import (
@@ -15,8 +21,10 @@ from pydantic_ai import (
     SystemPromptPart,
     FunctionToolset,
     Tool,
+    DeferredToolRequests,
+    ToolDenied,
+    DeferredToolResults,
 )
-from typing import Type, Any
 
 
 def add_custom_logger_handler(
@@ -41,7 +49,11 @@ class PydanticAIBaseKernel(MetaKernel):
 
     Allows to access agent history (tool calling history). Thanks to pydantic-ai
     library, nearly all inference providers are supported.
-    With metakernel magics, you can load a new config file.
+    With metakernel magics, you can load a new config file,
+    display agent history.
+
+    Tool validation is supported through pydantic-ai DeferredToolRequest
+    being forwarded to frontend with jupyter input_request messages.
 
     Most of the metakernel magics are disabled on purpose.
     """
@@ -112,7 +124,8 @@ class PydanticAIBaseKernel(MetaKernel):
         if os.getenv("PYDANTIC_AI_KERNEL_LOG", False):
             add_custom_logger_handler(self.log)
         self.agent_config = agent_config
-        self.tools: list[Tool] = tools if tools is not None else []
+
+        self.tools = tools if tools is not None else []
         self.toolsets = toolsets
         self.output_type = output_type
 
@@ -131,6 +144,7 @@ class PydanticAIBaseKernel(MetaKernel):
             self.agent = None
         self.agent_history = []
         self.all_messages_ids = []
+        self.user_validation = False
         self.log.info("Initialization of Pydantic AI Kernel is successful.")
 
     def reload_magics(self) -> None:
@@ -205,7 +219,7 @@ class PydanticAIBaseKernel(MetaKernel):
                 f"Could not load and validate config file for agent at {dir}."
             ) from e
 
-    def create_agent(self) -> Agent:
+    def create_agent(self) -> Agent[None, Any]:
         """
         Creates the pydantic-ai agent, from config file.
         """
@@ -218,7 +232,7 @@ class PydanticAIBaseKernel(MetaKernel):
             self.log.warning(e)
         agent = Agent(
             model,
-            output_type=self.output_type,
+            output_type=[self.output_type, DeferredToolRequests],
             system_prompt=self.agent_config.system_prompt,
             tools=self.tools,
             toolsets=self.toolsets,
@@ -227,6 +241,66 @@ class PydanticAIBaseKernel(MetaKernel):
         )
 
         return agent
+
+    async def run_agent(
+        self,
+        prompt: Optional[str],
+        deferred_tool_result: Optional[DeferredToolResults] = None,
+    ) -> Optional[DeferredToolRequests]:
+        """
+        Runs the agent. Streams the output to stdout. Returns a DeferredToolRequest
+        to ask for user approval if some tool needs it.
+        Else, returns None.
+
+        Can be called several times in the same question if the user gives
+        its validation for tool calling.
+
+        Parameters :
+        ---
+            - prompt (Optional[str]): the prompt given to the agent
+            - deferred_tool_result (Optional[DeferredToolResults]) : optional
+                tool approval / disapproval of the last agent run.
+
+        Returns :
+        ---
+            None if all text output was streamed to stdout. A DeferredToolRequests
+            object if the user needs to validate some tool calling.
+        """
+        if self.agent is None:
+            raise Exception(
+                r"Load config file before using the agent. Send `%load_config <config_dir>`. See https://github.com/mariusgarenaux/pydantic-ai-kernel to get config scheme."
+            )
+        last_text = ""
+        tool_req = None
+        async with self.agent.run_stream(
+            prompt,
+            message_history=self.agent_history,
+            deferred_tool_results=deferred_tool_result,
+        ) as response:
+            async for out in response.stream_output():
+                if isinstance(out, DeferredToolRequests):
+                    tool_req = out
+                    continue
+                sendable_text = str(out).removeprefix(last_text)
+                last_text += sendable_text
+                self.Print(sendable_text, sep="", end="")
+
+            all_msg = response.all_messages()
+            self.log.debug(f"Adding : {all_msg} to agent history.")
+            self.agent_history = all_msg
+        return tool_req
+
+    def ask_user_approval(self, prompt: Optional[str] = None) -> bool:
+        """
+        Sends a input_request message to the frontend, asking
+        for user approval.
+
+        Returns:
+        ---
+            True if the user gave his approval, else False
+        """
+        user_approval = self.raw_input(f"{prompt} ([y]/n):")
+        return user_approval in ["Y", "yes", 1, "1", "y"]
 
     async def do_execute_direct(self, code: str, silent=False):
         """
@@ -244,27 +318,47 @@ class PydanticAIBaseKernel(MetaKernel):
                 raise Exception(
                     r"Load config file before using the agent. Send `%load_config <config_dir>`. See https://github.com/mariusgarenaux/pydantic-ai-kernel to get config scheme."
                 )
-            last_text = ""
-            async with self.agent.run_stream(
-                code, message_history=self.agent_history
-            ) as response:
-                async for text in response.stream_text():
-                    sendable_text = text.removeprefix(last_text)
-                    last_text = text
-                    self.Print(sendable_text, sep="", end="")
 
-            self.agent_history = response.all_messages()
-        except Exception as e:
-            self.Error_display(e)
+            deferred_tool_result = None
+            while True:
+                # runs the agent until it returns anything other than a deferred
+                # tool request.
+                # if it outputs a deferred tool request, ask for user approval,
+                # and then re-run the agent.
+                prompt = code if deferred_tool_result is None else None
+                agent_out = await self.run_agent(
+                    prompt, deferred_tool_result=deferred_tool_result
+                )
+                self.log.info(f"Agent out : {agent_out}")
+                # self.log.info(f"Agent history : {self.agent.history_processors}")
+
+                if isinstance(agent_out, DeferredToolRequests):
+                    results = DeferredToolResults()
+                    for call in agent_out.approvals:
+                        self.log.info(f"Call : {call}")
+                        user_approved = self.ask_user_approval(
+                            f"Approve the call of tool `{call.tool_name}` with args : `{call.args}`"
+                        )
+                        if not user_approved:
+                            result = ToolDenied()
+                        else:
+                            result = True
+                        results.approvals[call.tool_call_id] = result
+                    deferred_tool_result = results
+                else:
+                    break
+
+        except Exception:
+            self.Error_display(traceback.format_exc())
 
     async def do_is_complete(self, code: str) -> dict[str, str]:
         """
-        Overwrites metakernel do_is_complete to have :
-            - magic commands requires an empty line (as usual)
-            - non-magic commands do not need an empty line
-            - non-magic commands can be multiline if the line
-                ends with ' '.
-        """
+         Overwrites metakernel do_is_complete to have :
+             - magic commands requires an empty line (as usual)
+             - non-magic commands do not need an empty line
+             - non-magic commands can be multiline if the line
+                 ends with ' '.
+        u"""
         if code.startswith(self.magic_prefixes["magic"]):
             ## force requirement to end with an empty line
             if code.endswith("\n"):

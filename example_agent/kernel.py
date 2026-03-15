@@ -1,0 +1,32 @@
+from pydantic_ai_kernel import PydanticAIBaseKernel
+from pydantic_ai import Tool
+
+
+def add(x, y):
+    """
+    Add two numbers x and y.
+    """
+    return x + y
+
+
+def mul(x, y):
+    """
+    Multiply two numbers x and y
+    """
+    return x * y
+
+
+class ExampleAgent(PydanticAIBaseKernel):
+
+    def __init__(self, **kwargs):
+        add_tool = Tool(add)
+        mul_tool = Tool(mul, requires_approval=True)  # all tool call
+        # will send an input_request message from frontend
+        super().__init__(
+            kernel_name="example_agent",
+            authorized_magics_names=[
+                "ExampleAdditionalMagic",
+            ],
+            tools=[add_tool, mul_tool],
+            **kwargs,
+        )
