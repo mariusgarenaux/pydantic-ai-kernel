@@ -1,5 +1,5 @@
 from pydantic_ai_kernel import PydanticAIBaseKernel
-from pydantic_ai_kernel.utils import put_text_in_box
+from pydantic_ai_kernel.utils import put_text_in_box, nice_display_tool_args
 
 from pydantic_ai.messages import (
     ModelMessage,
@@ -97,7 +97,9 @@ def nice_display_model_message_part(
         content = part.content
     elif isinstance(part, ToolCallPart) or isinstance(part, BuiltinToolCallPart):
         title = "Tool Calling"
-        content = f"Name :{part.tool_name}\nArgs :{part.args}"
+        content = (
+            f"Name : `{part.tool_name}`\nArgs :\n{nice_display_tool_args(part.args)}"
+        )
     elif isinstance(part, ThinkingPart):
         title = "Thinking"
         content = part.content
