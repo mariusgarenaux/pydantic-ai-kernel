@@ -1,6 +1,8 @@
 # Pydantic AI Base Kernel
 
-This is wrapper around pydantic-ai agent, that allows to requests it through jupyter kernel messaging protocol.
+This is wrapper around pydantic-ai agent, that allows to requests it through [jupyter kernel messaging protocol](https://jupyter-client.readthedocs.io/en/stable/messaging.html).
+
+> Instead of re-writing an other CLI for a chatbot, use Jupyter one. This gives you a free UI, as well as the API to implement access the agent through well known and proven [Jupyter Messaging Protocol](https://jupyter-client.readthedocs.io/en/stable/messaging.html). This allow for example the spawning of multiple instances of kernels through [jupyter kernel gateway](https://jupyter-kernel-gateway.readthedocs.io/en/latest/), for free - and allows to access the agent through a web socket.
 
 It is meant to be subclassed to create new kernel-based agent, for adding tools or any special application.
 
@@ -8,15 +10,17 @@ It is meant to be subclassed to create new kernel-based agent, for adding tools 
 
 For a basic usage of agents (chatbot), without tools, you can use any instance of this kernel and initialize it with a config file.
 
-Allows for :
+Features coming natively from jupyter messaging protocol :
 
-- streamed output (thanks to jupyter messaging protocol)
+- language-agnostic protocol,
+
+- streamed output (with asynchronous support for python implementation),
 
 - [configuration of the agent](#configuration-file) (set system prompt, inference provider, ...), through nearly all the inference providers (thanks to pydantic-ai)
 
 - [display the history and tool calling of the agent (with magic command %agent_history)](#access-agent-history)
 
-- [user validation for tools that requires it](#add-tools)
+- [user validation for tools that requires it](#add-tools), with input request messages from Jupyter Messaging
 
 ## Getting started
 
@@ -90,6 +94,21 @@ model:
 and specify API key in environment variable.
 
 Scheme can be found [here](https://github.com/mariusgarenaux/pydantic-ai-kernel/blob/main/pydantic_ai_kernel/config_scheme.json).
+
+For an access through OpenWebUI API :
+
+```yaml
+agent_name: agent
+system_prompt: Blabla
+model:
+  model_name: qwen3:1.7b
+  model_type: openai
+  model_provider:
+    name: openai
+    params:
+      api_key: <api-key>
+      base_url: https://the_open_web_ui_instance/api
+```
 
 ## Access agent history
 

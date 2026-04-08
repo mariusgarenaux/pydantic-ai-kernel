@@ -20,7 +20,6 @@ from metakernel import Magic, option
 
 
 class AgentHistoryMagic(Magic):
-
     @option(
         "-l",
         "--light",

@@ -29,11 +29,11 @@ from pydantic_ai import (
 
 
 def add_custom_logger_handler(
-    logger: logging.Logger, log_dir="~/.pydantic_ai_kernel_logs/pydantic_ai.log"
+    logger: logging.Logger, log_dir="~/.jupyter/logs/pydantic_ai.log"
 ):
     """
     Add a custom handlers to the metakernel logger; located
-    in ~/.pydantic_ai_kernel_logs dir
+    in ~/.jupyter/logs dir
     """
     log_dir = Path(log_dir).expanduser()
     fh = logging.FileHandler(log_dir, encoding="utf-8")
@@ -72,10 +72,10 @@ class PydanticAIBaseKernel(MetaKernel):
         "file_extension": ".ai",
     }
     banner = "Pydantic AI Base Kernel"
+    app_name = "pydantic_ai"
 
     def __init__(
         self,
-        kernel_name: str = "pydantic_ai",
         agent_config: AgentConfig | None = None,
         tools: list[Tool] | None = None,
         toolsets: list[FunctionToolset] | None = None,
@@ -87,9 +87,6 @@ class PydanticAIBaseKernel(MetaKernel):
         """
         Parameters :
         ---
-            - kernel_name (str = `pydantic_ai`) : the name of kernel. Used for fetching
-                default config file. TODO : sync with metakernel name and default config
-                files
             - agent_config (AgentConfig | None = None) : the configuration object for the
                 agent. Deals with system prompt, inference provider API, ...
             - tools (list[Tool] | None = None) : list of pydantic-ai tools, which can be
@@ -121,7 +118,6 @@ class PydanticAIBaseKernel(MetaKernel):
         )
 
         super().__init__(**kwargs)
-        self.kernel_name = kernel_name
         if os.getenv("PYDANTIC_AI_KERNEL_LOG", False):
             add_custom_logger_handler(self.log)
         self.agent_config = agent_config
@@ -199,7 +195,7 @@ class PydanticAIBaseKernel(MetaKernel):
         Parameters :
         ---
             - path (Optional[str]) : path to the config file. If None,
-                is set to ~/.jupyter/jupyter_<kernel_name>_config.yaml
+                is set to ~/.jupyter/jupyter_<app_name>_config.yaml
 
         Returns :
         ---
@@ -207,7 +203,7 @@ class PydanticAIBaseKernel(MetaKernel):
         """
         if path is None:
             home = Path.home()
-            dir = home / f".jupyter/jupyter_{self.kernel_name}_config.yaml"
+            dir = home / f".jupyter/jupyter_{self.app_name}_config.yaml"
         else:
             dir = path
         try:
@@ -222,7 +218,8 @@ class PydanticAIBaseKernel(MetaKernel):
 
     def create_agent(self) -> Agent[None, Any]:
         """
-        Creates the pydantic-ai agent, from config file.
+        Creates the pydantic-ai agent, from config file. Can be overriden
+        by a sub-class to implement any pydantic-ai agent.
         """
         if self.agent_config is None:
             raise ValueError("Could not create agent without configuration file.")

@@ -1,5 +1,5 @@
 from pydantic_ai_kernel import PydanticAIBaseKernel
-from pydantic_ai import Tool
+from pydantic_ai import Tool, FunctionToolset
 
 
 def add(x, y):
@@ -20,8 +20,18 @@ def display_long_string(x: str):
     print(x)
 
 
-class ExampleAgent(PydanticAIBaseKernel):
+def say_hello():
+    return "hello"
 
+
+def say_goodbye():
+    return "goodbye"
+
+
+hi_toolset = FunctionToolset([say_hello, say_goodbye])
+
+
+class ExampleAgent(PydanticAIBaseKernel):
     def __init__(self, **kwargs):
         add_tool = Tool(add)
         mul_tool = Tool(mul, requires_approval=True)  # all tool call
@@ -33,5 +43,6 @@ class ExampleAgent(PydanticAIBaseKernel):
                 "ExampleAdditionalMagic",
             ],
             tools=[add_tool, mul_tool, display_long_string_tool],
+            toolsets=[hi_toolset],
             **kwargs,
         )
