@@ -16,6 +16,7 @@ kernel_json = {
     "argv": ["python", "-m", "pydantic_ai_kernel", "-f", "{connection_file}"],
     "display_name": "Pydantic AI Base kernel",
     "language": "text",
+    "interrupt_mode": "message",
 }
 
 
