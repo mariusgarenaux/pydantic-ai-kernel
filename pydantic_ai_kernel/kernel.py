@@ -8,8 +8,9 @@ import glob
 import sys
 import os
 import traceback
+import asyncio
 from pathlib import Path
-from typing import Type, Any, Optional
+from typing import Type, Any, Optional, AsyncIterable
 
 # External python dependencies
 from metakernel import MetaKernel, Magic
@@ -25,22 +26,26 @@ from pydantic_ai import (
     DeferredToolRequests,
     ToolDenied,
     DeferredToolResults,
+    AgentStreamEvent,
+    RunContext,
 )
 
 
-def add_custom_logger_handler(
-    logger: logging.Logger, log_dir="~/.jupyter/logs/pydantic_ai.log"
-):
+def add_custom_logger_handler(logger: logging.Logger):
     """
     Add a custom handlers to the metakernel logger; located
     in ~/.jupyter/logs dir
     """
-    log_dir = Path(log_dir).expanduser()
-    fh = logging.FileHandler(log_dir, encoding="utf-8")
+    log_file = os.getenv(
+        "PYDANTIC_AI_KERNEL_LOG_FILE",
+        Path("~/.jupyter/logs/pydantic_ai.log").expanduser(),
+    )
+    fh = logging.FileHandler(log_file, encoding="utf-8")
     fmt = logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s")
     fh.setFormatter(fmt)
     logger.addHandler(fh)
-    logger.setLevel(logging.INFO)
+    log_level = os.getenv("PYDANTIC_AI_KERNEL_LOG_LEVEL", "INFO")
+    logger.setLevel(log_level)
 
 
 class PydanticAIBaseKernel(MetaKernel):
@@ -111,6 +116,8 @@ class PydanticAIBaseKernel(MetaKernel):
             "AgentHistoryMagic",
             "ToolMagic",
             "ForgetMagic",
+            "EditConfigMagic",
+            "WriteConfigMagic",
         ]
         self.authorized_magics_names = authorized_magics_names
         self.additional_agent_kwargs = (
@@ -118,14 +125,14 @@ class PydanticAIBaseKernel(MetaKernel):
         )
 
         super().__init__(**kwargs)
-        if os.getenv("PYDANTIC_AI_KERNEL_LOG", False):
+        if os.getenv("PYDANTIC_AI_KERNEL_LOG_LEVEL", False):
             add_custom_logger_handler(self.log)
         self.agent_config = agent_config
 
         self.tools = tools if tools is not None else []
         self.toolsets = toolsets
         self.output_type = output_type
-
+        self.is_interrupted = False  # boolean that is triggered by an interrupt_message
         try:
             if self.agent_config is None:
                 self.agent_config = self.load_config()
@@ -141,7 +148,7 @@ class PydanticAIBaseKernel(MetaKernel):
             self.agent = None
         self.agent_history = []
         self.all_messages_ids = []
-        self.user_validation = False
+        self.config_has_changed = False
         self.log.info("Initialization of Pydantic AI Kernel is successful.")
 
     def reload_magics(self) -> None:
@@ -187,6 +194,11 @@ class PydanticAIBaseKernel(MetaKernel):
             self.log.info(f"Adding magic : {magic_klass}")
             super().register_magics(magic_klass)
 
+    def get_config_dir(self) -> str:
+        home_directory = os.path.expanduser("~")
+        config_name = f"jupyter_{self.app_name}_config.yaml"
+        return os.path.join(home_directory, f".jupyter/{config_name}")
+
     def load_config(self, path: str | None = None) -> AgentConfig:
         """
         Try to load config file at ~/.jupyter/jupyter_<kernel_name>_config.yaml.
@@ -202,8 +214,7 @@ class PydanticAIBaseKernel(MetaKernel):
             AgentConfig pydantic BaseModel, validated
         """
         if path is None:
-            home = Path.home()
-            dir = home / f".jupyter/jupyter_{self.app_name}_config.yaml"
+            dir = self.get_config_dir()
         else:
             dir = path
         try:
@@ -240,6 +251,18 @@ class PydanticAIBaseKernel(MetaKernel):
 
         return agent
 
+    async def handle_event(self, event: AgentStreamEvent):
+        if isinstance(event, DeferredToolRequests):
+            return
+
+    async def event_stream_handler(
+        self,
+        ctx: RunContext,
+        event_stream: AsyncIterable[AgentStreamEvent],
+    ):
+        async for event in event_stream:
+            await self.handle_event(event)
+
     async def run_agent(
         self,
         prompt: Optional[str],
@@ -274,8 +297,16 @@ class PydanticAIBaseKernel(MetaKernel):
             prompt,
             message_history=self.agent_history,
             deferred_tool_results=deferred_tool_result,
+            event_stream_handler=self.event_stream_handler,
         ) as response:
             async for out in response.stream_output():
+                if self.is_interrupted:
+                    # https://github.com/pydantic/pydantic-ai/issues/1524
+                    # TODO : wait pydantic-ai implements clean close
+                    # of stream loop
+                    # for the moment, a warning is displayed
+                    raise UserInterruptionError("Execution stopped by user")
+
                 if isinstance(out, DeferredToolRequests):
                     tool_req = out
                     continue
@@ -312,11 +343,16 @@ class PydanticAIBaseKernel(MetaKernel):
                 See https://jupyter-client.readthedocs.io/en/stable/messaging.html#execute
         """
         try:
+            if self.config_has_changed:
+                self.agent_config = self.load_config()
+                self.agent = self.create_agent()
+                self.config_has_changed = False
+
             if self.agent is None:
                 raise Exception(
                     r"Load config file before using the agent. Send `%load_config <config_dir>`. See https://github.com/mariusgarenaux/pydantic-ai-kernel to get config scheme."
                 )
-
+            self.is_interrupted = False
             deferred_tool_result = None
             while True:
                 # runs the agent until it returns anything other than a deferred
@@ -324,9 +360,10 @@ class PydanticAIBaseKernel(MetaKernel):
                 # if it outputs a deferred tool request, ask for user approval,
                 # and then re-run the agent.
                 prompt = code if deferred_tool_result is None else None
-                agent_out = await self.run_agent(
-                    prompt, deferred_tool_result=deferred_tool_result
+                agent_out = asyncio.create_task(
+                    self.run_agent(prompt, deferred_tool_result=deferred_tool_result)
                 )
+                await agent_out
                 self.log.info(f"Agent out : {agent_out}")
                 # self.log.info(f"Agent history : {self.agent.history_processors}")
 
@@ -368,3 +405,23 @@ class PydanticAIBaseKernel(MetaKernel):
             return {"status": "incomplete"}
         else:
             return {"status": "complete"}
+
+    async def interrupt_request(self, stream, ident, parent):
+        """
+        This method is called when an interrupt_request message is received.
+
+        By default, Ipykernel restart the kernel on an interrupt request.
+        We override this here, to make an early stop of the agent stream.
+        """
+        self.log.info("Cell interuption asked ")
+        if not self.session:
+            return
+
+        self.is_interrupted = True
+        content = {"status": "ok"}
+        self.session.send(stream, "interrupt_reply", content, parent, ident=ident)
+        return
+
+
+class UserInterruptionError(Exception):
+    pass

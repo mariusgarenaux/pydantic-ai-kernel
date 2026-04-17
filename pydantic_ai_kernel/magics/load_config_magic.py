@@ -1,13 +1,19 @@
 import os
 from pydantic_ai_kernel import PydanticAIBaseKernel
-from metakernel import Magic
+from metakernel import Magic, option
 
 
 class LoadConfigMagic(Magic):
-
-    def line_load_config(self, path) -> None:
+    @option(
+        "-r",
+        "--reset",
+        action="store_true",
+        default=False,
+        help="Whether to reset agent history or not",
+    )
+    def line_load_config(self, path, reset: bool) -> None:
         """
-        %load_config PATH - loads the agent config
+        %load_config PATH : loads the agent config
 
         Loads the agent configuration located at path
         """
@@ -20,7 +26,8 @@ class LoadConfigMagic(Magic):
         self.kernel.agent_config = self.kernel.load_config(path=path)
         agent = self.kernel.create_agent()
         self.kernel.agent = agent
-        self.message_history = []
+        if reset:
+            self.message_history = []
 
         self.kernel.Print(f"Updated config file from {path}")
 

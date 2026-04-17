@@ -38,6 +38,18 @@ Any jupyter frontend should be able to dialog with this kernel, for example :
 
 • **Silik Signal Messaging** : Access the kernel through Signal Message Application, see [here](https://github.com/mariusgarenaux/silik-messaging)
 
+You can also start the kernel without frontend, and connect any frontend to it in a separate process :
+
+```bash
+jupyter kernel --kernel pydantic_ai --KernelManager.connection_file ./pydantic_ai_kernel.json
+```
+
+Then, for example (this would work with notebooks or any jupyter frontend) :
+
+```bash
+jupyter console --ConnectionFileMixin.connection_file ./pydantic_ai_kernel.json
+```
+
 ## Configuration file
 
 By default, kernel starts by looking for a configuration file here :
@@ -52,7 +64,9 @@ But you can also run the kernel as is; and specify the path to a config file by 
 
 This allows to have different instances of the same kernel, each with its own system prompt and / or inference provider.
 
-### Description of the configuration file
+You can also run the magic : `%make_config` to create and edit the config file from the kernel itself. Give it a flag --template (ollama, open_web_ui, openai) to save time.
+
+### Detailed description of the configuration file
 
 The configuration standard is a little bit cumbersome but is made to match the description of agents in pydantic-ai. We describe hereafter this standard.
 
@@ -194,7 +208,11 @@ def __init__(self, **kwargs):
 
 ### Developer - Debug
 
-If you want to see the logs of the kernel; export the environment variable `PYDANTIC_AI_KERNEL_LOG` to 'True'. You also need to create a dir to save logs at `~/.pydantic_ai_kernel_logs`. For subclasses, logger can be accessed with `self.log` (e.g. `self.log.debug('hey')`).
+If you want to see the logs of the kernel; export the environment variable `PYDANTIC_AI_KERNEL_LOG_LEVEL` to 'DEBUG', 'INFO', ...
+You can set `PYDANTIC_AI_KERNEL_LOG_FILE` to specify where the log file is saved. Default is `~/.jupyter/logs/pydantic_ai.log`.
+For subclasses, logger can be accessed with `self.log`(e.g.`self.log.debug('hey')`).
+
+Without any of these environment variables, the ipykernel base logger is used (self.log).
 
 ## Dealing with multi-agents
 

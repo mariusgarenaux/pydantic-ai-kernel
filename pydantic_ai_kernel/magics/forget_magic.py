@@ -3,7 +3,6 @@ from metakernel import Magic
 
 
 class ForgetMagic(Magic):
-
     def line_forget(self):
         """
         %forget - empty the agent history.
