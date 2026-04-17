@@ -29,6 +29,7 @@ from pydantic_ai import (
     AgentStreamEvent,
     RunContext,
 )
+from datetime import datetime
 
 
 def add_custom_logger_handler(logger: logging.Logger):
@@ -36,11 +37,17 @@ def add_custom_logger_handler(logger: logging.Logger):
     Add a custom handlers to the metakernel logger; located
     in ~/.jupyter/logs dir
     """
-    log_file = os.getenv(
-        "PYDANTIC_AI_KERNEL_LOG_FILE",
-        Path("~/.jupyter/logs/pydantic_ai.log").expanduser(),
+
+    log_dir = os.getenv(
+        "PYDANTIC_AI_KERNEL_LOG_DIR", Path("~/.jupyter/logs/pydantic_ai").expanduser()
     )
-    fh = logging.FileHandler(log_file, encoding="utf-8")
+    os.makedirs(log_dir, exist_ok=True)
+
+    # Get current datetime in format YYYY-MM-DD_HH-MM-SS
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    log_filename = os.path.join(log_dir, f"{timestamp}.log")
+
+    fh = logging.FileHandler(log_filename, encoding="utf-8")
     fmt = logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s")
     fh.setFormatter(fmt)
     logger.addHandler(fh)
@@ -360,10 +367,10 @@ class PydanticAIBaseKernel(MetaKernel):
                 # if it outputs a deferred tool request, ask for user approval,
                 # and then re-run the agent.
                 prompt = code if deferred_tool_result is None else None
-                agent_out = asyncio.create_task(
-                    self.run_agent(prompt, deferred_tool_result=deferred_tool_result)
+                agent_out = await self.run_agent(
+                    prompt, deferred_tool_result=deferred_tool_result
                 )
-                await agent_out
+
                 self.log.info(f"Agent out : {agent_out}")
                 # self.log.info(f"Agent history : {self.agent.history_processors}")
 
