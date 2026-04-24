@@ -323,8 +323,16 @@ class PydanticAIBaseKernel(MetaKernel):
                 sendable_text = str(out).removeprefix(last_text)
                 last_text += sendable_text
                 self.Print(sendable_text, sep="", end="")
+
+            # this line could break things, because we bet
+            # here that frontends that can't display markdown
+            # are also those that can't clear output
+            # (for ex. jupyter console).
+            # since there is no way to know if a frontend
+            # really clears output on clear_output, this
+            # remains the best option
             self.Display(
-                {"text/markdown": last_text, "text/plain": last_text},
+                {"text/markdown": last_text},
                 clear_output=True,
             )
 
