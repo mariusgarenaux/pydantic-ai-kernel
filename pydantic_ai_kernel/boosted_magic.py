@@ -107,9 +107,10 @@ class BoostedMagic(Magic):
             if each_attr.startswith("line"):
                 func = getattr(self, each_attr)
                 break
-            if each_attr.startswith("cell"):
-                func = getattr(self, each_attr)
-                break
+            # for now, info does not contains magic type
+            # if each_attr.startswith("cell"):
+            #     func = getattr(self, each_attr)
+            #     break
         if func is None:
             self.kernel.log.warning("Could not find any magic to complete.")
             return []
@@ -208,7 +209,9 @@ def _boosted_parse_args(
     args = _split_args(args)
 
     # raise ValueError(f"dajkbz {args}")
-    if getattr(func, "has_boosted_options", True):
+    if getattr(func, "has_boosted_options", False) and getattr(
+        func, "boosted_parser", False
+    ):
         if not isinstance(func.boosted_parser, argparse.ArgumentParser):
             return list(), dict()
         parsed_args = func.boosted_parser.parse_args(args)

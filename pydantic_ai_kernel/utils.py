@@ -72,3 +72,7 @@ def put_text_in_box(text: str, indent: int) -> str:
 
 class MCPToolsetError(Exception):
     pass
+
+
+class LoadConfigError(Exception):
+    pass

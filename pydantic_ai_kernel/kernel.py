@@ -1,6 +1,6 @@
 # Internal Imports
 from .agent_config import AgentConfig
-from .utils import prompt_user_approval
+from .utils import prompt_user_approval, LoadConfigError
 
 # Base python dependencies
 import importlib
@@ -119,12 +119,11 @@ class PydanticAIBaseKernel(MetaKernel):
         authorized_magics_names += [
             "HelpMagic",
             "MagicMagic",
-            "LoadConfigMagic",
             "AgentHistoryMagic",
             "ToolMagic",
             "ForgetMagic",
-            "EditConfigMagic",
-            "WriteConfigMagic",
+            "ConfigMagic",
+            "FileMagic",
             "MCPMagic",
             "FastMCPMagic",
         ]
@@ -234,7 +233,7 @@ class PydanticAIBaseKernel(MetaKernel):
             validated_conf = AgentConfig.model_validate(conf)
             return validated_conf
         except Exception as e:
-            raise Exception(
+            raise LoadConfigError(
                 f"Could not load and validate config file for agent at {dir}."
             ) from e
 
