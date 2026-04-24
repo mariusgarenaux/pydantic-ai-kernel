@@ -32,6 +32,9 @@ hi_toolset = FunctionToolset([say_hello, say_goodbye])
 
 
 class ExampleAgent(PydanticAIBaseKernel):
+    banner = "Example Agent"
+    app_name = "example_agent"
+
     def __init__(self, **kwargs):
         add_tool = Tool(add)
         mul_tool = Tool(mul, requires_approval=True)  # all tool call

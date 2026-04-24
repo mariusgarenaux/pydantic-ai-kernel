@@ -22,7 +22,6 @@ from pydantic_ai import (
     SystemPromptPart,
     FunctionToolset,
     ToolsetFunc,
-    AbstractToolset,
     Tool,
     DeferredToolRequests,
     ToolDenied,
@@ -72,7 +71,7 @@ class PydanticAIBaseKernel(MetaKernel):
     Most of the metakernel magics are disabled on purpose.
     """
 
-    implementation = "PydanticAI Base Agent Kernel"
+    implementation = "PydanticAI Agent Kernel"
     implementation_version = "1.0"
     language = "no-op"
     help_suffix = (
@@ -84,7 +83,7 @@ class PydanticAIBaseKernel(MetaKernel):
         "mimetype": "text/plain",
         "file_extension": ".ai",
     }
-    banner = "Pydantic AI Base Kernel"
+    banner = "Pydantic AI Kernel"
     app_name = "pydantic_ai"
 
     def __init__(
@@ -325,6 +324,10 @@ class PydanticAIBaseKernel(MetaKernel):
                 sendable_text = str(out).removeprefix(last_text)
                 last_text += sendable_text
                 self.Print(sendable_text, sep="", end="")
+            self.Display(
+                {"text/markdown": last_text, "text/plain": last_text},
+                clear_output=True,
+            )
 
             all_msg = response.all_messages()
             self.log.debug(f"Adding : {all_msg} to agent history.")

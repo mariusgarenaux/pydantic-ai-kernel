@@ -36,6 +36,8 @@ Any jupyter frontend should be able to dialog with this kernel, for example :
 
 • **Notebook** (you might need to restart the IDE) : select 'pydantic_ai' on top right of the notebook
 
+• **Jupyter Lab** : see [Jupyter Lab](#integration-in-jupyter-lab)
+
 • **Silik Signal Messaging** : Access the kernel through Signal Message Application, see [here](https://github.com/mariusgarenaux/silik-messaging)
 
 You can also start the kernel without frontend, and connect any frontend to it in a separate process :
@@ -171,6 +173,19 @@ In [3]: %agent_history
     │   The sum of 673,763 and 92,830 is **766,593**. 😊
     ╰───────────────────────────────
 ```
+
+## Integration in Jupyter Lab
+
+You can use agent in jupyter lab, without any other extension, since we're using jupyter kernel machinery.
+Just install the python package `pip install pydantic_ai_kernel` as above, inside jupyter lab.
+
+You should be able to run the chatbot as you would run a kernel, either in console or notebook :
+
+![](https://github.com/mariusgarenaux/pydantic-ai-kernel/blob/main/jupyter_lab_home.png?raw=True)
+
+![](https://github.com/mariusgarenaux/pydantic-ai-kernel/blob/main/jupyter_lab_chat.png?raw=True)
+
+> Pydantic AI Agent streams output as text/plain, and when the generation is ended, the a display_data message is sent to replace output with either text/plain or text/markdown. The frontend is responsible for displaying one of two.
 
 ## Creating your own agents
 
