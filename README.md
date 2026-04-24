@@ -1,4 +1,4 @@
-# Pydantic AI Base Kernel
+# Pydantic AI Kernel
 
 This is wrapper around pydantic-ai agent, that allows to requests it through [jupyter kernel messaging protocol](https://jupyter-client.readthedocs.io/en/stable/messaging.html).
 
@@ -16,9 +16,9 @@ Features coming natively from jupyter messaging protocol :
 
 - streamed output (with asynchronous support for python implementation),
 
-- [configuration of the agent](#configuration-file) (set system prompt, inference provider, ...), through nearly all the inference providers (thanks to pydantic-ai)
+- [configuration of the agent](#config) (set system prompt, inference provider, ...), through nearly all the inference providers (thanks to pydantic-ai)
 
-- [display the history and tool calling of the agent (with magic command %agent_history)](#access-agent-history)
+- [display the history and tool calling of the agent (with magic command %agent_history)](#agent_history)
 
 - [user validation for tools that requires it](#add-tools), with input request messages from Jupyter Messaging
 
@@ -56,7 +56,11 @@ to create the config file, and start chat. See below for more informations.
 
 > `%help <magic_name>` and `%magic` will give you appropriate documentation
 
-## Configuration file
+## Magics
+
+Magics command are implemented, here is a sample :
+
+### %config
 
 By default, kernel starts by looking for a configuration file here :
 
@@ -72,7 +76,7 @@ This allows to have different instances of the same kernel, each with its own sy
 
 You can also run the magic : `%config --edit` to create and edit the config file from the kernel itself. Give it a flag --template (ollama, open_web_ui, openai) to save time.
 
-### Detailed description of the configuration file
+#### Detailed description of the configuration file
 
 The configuration standard is a little bit cumbersome but is made to match the description of agents in pydantic-ai. We describe hereafter this standard.
 
@@ -130,7 +134,7 @@ model:
       base_url: https://the_open_web_ui_instance/api
 ```
 
-## Access agent history
+### %agent_history
 
 With the magic command `%agent_history`, you can see the history of the agent (to check for tool calling, ...) :
 
@@ -178,6 +182,10 @@ In [3]: %agent_history
     ╰───────────────────────────────
 ```
 
+### %mcp and %fastmcp
+
+Allows to add an mcp server to the tools of the agent
+
 ## Integration in Jupyter Lab
 
 You can use agent in jupyter lab, without any other extension, since we're using jupyter kernel machinery.
@@ -189,7 +197,7 @@ You should be able to run the chatbot as you would run a kernel, either in conso
 
 ![](https://github.com/mariusgarenaux/pydantic-ai-kernel/blob/main/jupyter_lab_chat.png?raw=True)
 
-> Pydantic AI Agent streams output as text/plain, and when the generation is ended, the a display_data message is sent to replace output with either text/plain or text/markdown. The frontend is responsible for displaying one of two.
+> Pydantic AI Agent streams output as text/plain, and when the generation is ended, a display_data message is sent to replace with text/markdown.
 
 ## Creating your own agents
 
@@ -197,7 +205,7 @@ In order to create custom agents, you just need to create a new kernel, and subc
 
 You can then create tools, or any mechanism you want. We provide here juste the communication protocol between agent and user, through well known and proven jupyter kernels.
 
-The default configuration file for any subclass of PydanticAIBaseKernel will be fetched from : `~/.jupyter/jupyter_<kernel_name>_config.yaml`; and must follows the same scheme as the one of [pydantic_ai_kernel](https://github.com/mariusgarenaux/pydantic-ai-kernel/blob/main/pydantic_ai_kernel/config_scheme.json). But it can also be specified by sending a message to the kernel : `%load_config <path_to_config_file>`
+The default configuration file for any subclass of PydanticAIBaseKernel will be fetched from : `~/.jupyter/jupyter_<app_name>_config.yaml`; and must follows the same scheme as the one of [pydantic_ai_kernel](https://github.com/mariusgarenaux/pydantic-ai-kernel/blob/main/pydantic_ai_kernel/config_scheme.json). But it can also be specified by sending a message to the kernel : `%config <path_to_config_file>`
 
 ### Adding magic commands
 
@@ -225,10 +233,12 @@ def __init__(self, **kwargs):
     )
 ```
 
-### Developer - Debug
+## Developer
+
+### Logger
 
 If you want to see the logs of the kernel; export the environment variable `PYDANTIC_AI_KERNEL_LOG_LEVEL` to 'DEBUG', 'INFO', ...
-You can set `PYDANTIC_AI_KERNEL_LOG_FILE` to specify where the log file is saved. Default is `~/.jupyter/logs/pydantic_ai.log`.
+You can set `PYDANTIC_AI_KERNEL_LOG_DIR` to specify where the log file is saved. Default is `~/.jupyter/logs`.
 For subclasses, logger can be accessed with `self.log`(e.g.`self.log.debug('hey')`).
 
 Without any of these environment variables, the ipykernel base logger is used (self.log).
@@ -246,9 +256,3 @@ Then, for example (this would work with notebooks or any jupyter frontend) :
 ```bash
 jupyter console --ConnectionFileMixin.connection_file ./pydantic_ai_kernel.json
 ```
-
-## Dealing with multi-agents
-
-Multi-agents means here several agents that have access to the same context. To do so, you can for example use [**silik-kernel**](https://github.com/mariusgarenaux/silik-kernel); an other kernel that allows several kernels to be started and managed through a single one.
-
-You can also start several kernels independantly, and deal with them as you would with several classic jupyter kernels.
