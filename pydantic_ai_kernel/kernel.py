@@ -8,7 +8,6 @@ import glob
 import sys
 import os
 import traceback
-import asyncio
 from pathlib import Path
 from typing import Type, Any, Optional, AsyncIterable
 
@@ -428,6 +427,10 @@ class PydanticAIBaseKernel(MetaKernel):
         content = {"status": "ok"}
         self.session.send(stream, "interrupt_reply", content, parent, ident=ident)
         return
+
+    def get_completions(self, info: dict[str, Any]) -> list[str]:
+        self.log.info(f"Completion info : {info}")
+        return super().get_completions(info)
 
 
 class UserInterruptionError(Exception):

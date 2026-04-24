@@ -1,12 +1,10 @@
-from pydantic_ai_kernel import PydanticAIBaseKernel
+from pydantic_ai_kernel import PydanticAIBaseKernel, BoostedMagic, boosted_option
 from pydantic_ai_kernel.utils import put_text_in_box
 from pydantic_ai import Tool
 
-from metakernel import Magic, option
 
-
-class ToolMagic(Magic):
-    @option(
+class ToolMagic(BoostedMagic):
+    @boosted_option(
         "-v",
         "--verbose",
         action="store_true",

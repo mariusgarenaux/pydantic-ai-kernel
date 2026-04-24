@@ -1,6 +1,7 @@
 import os
 from pydantic_ai_kernel import PydanticAIBaseKernel
 from metakernel import Magic, option
+from typing import Any
 
 
 class LoadConfigMagic(Magic):
@@ -30,6 +31,10 @@ class LoadConfigMagic(Magic):
             self.message_history = []
 
         self.kernel.Print(f"Updated config file from {path}")
+
+    def get_completions(self, info: dict[str, Any]) -> list[str]:
+        self.kernel.log.info(f"Magic completion info : {info}")
+        return super().get_completions(info)
 
 
 def register_magics(kernel) -> None:

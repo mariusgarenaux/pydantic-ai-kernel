@@ -1,18 +1,27 @@
-from metakernel import Magic, option
-from pydantic_ai_kernel import PydanticAIBaseKernel
+from pydantic_ai_kernel import (
+    PydanticAIBaseKernel,
+    BoostedMagic,
+    boosted_option,
+    complete_from_list,
+)
 
 
-class EditConfigMagic(Magic):
+template_list = ["ollama", "open_web_ui", "openai"]
+
+
+class EditConfigMagic(BoostedMagic):
     """
     Loads the config file in a cell, and adds the magic %%write_config
     to save the content of the config in the file when the cell is
     executed.
     """
 
-    @option(
+    @boosted_option(
         "--template",
         default=None,
         help="Name of the template to use. Can be ollama, open_web_ui, openai",
+        choices=template_list,
+        completer=lambda w, r: complete_from_list(template_list, w, r),
     )
     def line_make_config(self, template: str | None = None):
         """

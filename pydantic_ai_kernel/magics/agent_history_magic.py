@@ -1,4 +1,5 @@
-from pydantic_ai_kernel import PydanticAIBaseKernel
+from pydantic_ai_kernel import PydanticAIBaseKernel, BoostedMagic, boosted_option
+
 from pydantic_ai_kernel.utils import put_text_in_box, nice_display_tool_args
 
 from pydantic_ai.messages import (
@@ -16,18 +17,17 @@ from pydantic_ai.messages import (
     ThinkingPart,
     FilePart,
 )
-from metakernel import Magic, option
 
 
-class AgentHistoryMagic(Magic):
-    @option(
+class AgentHistoryMagic(BoostedMagic):
+    @boosted_option(
         "-l",
         "--light",
         action="store_true",
         default=False,
         help="Display raw text, no color",
     )
-    @option(
+    @boosted_option(
         "-r",
         "--raw",
         action="store_true",
