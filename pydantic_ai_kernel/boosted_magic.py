@@ -142,22 +142,25 @@ class BoostedMagic(Magic):
                 f"Error when completing option : {traceback.format_exc()}"
             )
             return []
-        result = []
-        last_token = args[-1]
-        self.kernel.log.info(f"last token : {last_token}")
-        for each_match in completed:
-            # for option tokens (starting with '-'), metakernel does
-            # not replace the full token, but adds the completion.
-            # so we need to truncate it. Somehow, tokens starting
-            # with '-' are not treated as others.
-            # For other tokens, it works as statikomand.
-            if last_token.startswith("--") and each_match.startswith("--"):
-                each_match = each_match[2:]
-            elif last_token.startswith("-") and each_match.startswith("-"):
-                each_match = each_match[1:]
 
-            result.append(each_match)
+        if len(args) > 0:
+            result = []
+            last_token = args[-1]
+            self.kernel.log.info(f"last token : {last_token}")
+            for each_match in completed:
+                # for option tokens (starting with '-'), metakernel does
+                # not replace the full token, but adds the completion.
+                # so we need to truncate it. Somehow, tokens starting
+                # with '-' are not treated as others.
+                # For other tokens, it works as statikomand.
+                if last_token.startswith("--") and each_match.startswith("--"):
+                    each_match = each_match[2:]
+                elif last_token.startswith("-") and each_match.startswith("-"):
+                    each_match = each_match[1:]
 
+                result.append(each_match)
+        else:
+            result = completed
         self.kernel.log.debug(f"Boosted magic completion : {result}")
         return result
 

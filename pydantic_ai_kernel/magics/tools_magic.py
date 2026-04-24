@@ -1,6 +1,7 @@
 from pydantic_ai_kernel import PydanticAIBaseKernel, BoostedMagic, boosted_option
 from pydantic_ai_kernel.utils import put_text_in_box
 from pydantic_ai import Tool, FunctionToolset, ToolsetFunc
+from pydantic_ai.toolsets.fastmcp import FastMCPToolset
 
 
 class ToolMagic(BoostedMagic):
@@ -36,8 +37,9 @@ class ToolMagic(BoostedMagic):
                             out += f"{each_tool}"
                         else:
                             out += nice_tool_displaying(each_tool)
+                elif isinstance(each_toolset, FastMCPToolset):
+                    out += f"   FastMCP : {each_toolset.client.transport.url}"
                 else:
-                    # each_toolset is a method
                     out += f"  {each_toolset}"
                 self.kernel.Print(put_text_in_box(out, indent=2))
 

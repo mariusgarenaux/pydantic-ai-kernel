@@ -68,3 +68,7 @@ def put_text_in_box(text: str, indent: int) -> str:
     out += f"{textwrap.indent(text, preshift, predicate=lambda line: True)}\n"
     out += " " * indent + "╰─" + "─" * 30 + "\n"
     return out
+
+
+class MCPToolsetError(Exception):
+    pass

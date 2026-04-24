@@ -127,6 +127,7 @@ class PydanticAIBaseKernel(MetaKernel):
             "EditConfigMagic",
             "WriteConfigMagic",
             "MCPMagic",
+            "FastMCPMagic",
         ]
         self.authorized_magics_names = authorized_magics_names
         self.additional_agent_kwargs = (

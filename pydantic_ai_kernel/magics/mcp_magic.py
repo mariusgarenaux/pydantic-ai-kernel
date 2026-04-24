@@ -1,8 +1,6 @@
 from pydantic_ai_kernel import PydanticAIBaseKernel, BoostedMagic, boosted_option
-from pydantic_ai_kernel.utils import put_text_in_box
-from pydantic_ai import Tool
+from pydantic_ai_kernel.utils import MCPToolsetError
 from pydantic_ai.mcp import MCPServerStreamableHTTP, MCPServerSSE, MCPServerStdio
-from urllib.parse import urlsplit
 
 
 def create_mcp_toolset(
@@ -85,10 +83,6 @@ class MCPMagic(BoostedMagic):
         # reset agent
         self.kernel.agent = self.kernel.create_agent()
         self.kernel.Print("Added MCP server as tool of the agent.")
-
-
-class MCPToolsetError(Exception):
-    pass
 
 
 def register_magics(kernel) -> None:
