@@ -9,7 +9,7 @@ import sys
 import os
 import traceback
 from pathlib import Path
-from typing import Type, Any, Optional, AsyncIterable
+from typing import Type, Any, Optional, AsyncIterable, Sequence
 
 # External python dependencies
 from metakernel import MetaKernel, Magic
@@ -21,6 +21,8 @@ from pydantic_ai import (
     ModelMessage,
     SystemPromptPart,
     FunctionToolset,
+    ToolsetFunc,
+    AbstractToolset,
     Tool,
     DeferredToolRequests,
     ToolDenied,
@@ -89,7 +91,7 @@ class PydanticAIBaseKernel(MetaKernel):
         self,
         agent_config: AgentConfig | None = None,
         tools: list[Tool] | None = None,
-        toolsets: list[FunctionToolset] | None = None,
+        toolsets: Sequence[FunctionToolset | ToolsetFunc] | None = None,
         output_type: Type = str,
         authorized_magics_names: list[str] | None = None,
         additional_agent_kwargs: dict[str, Any] | None = None,
@@ -124,6 +126,7 @@ class PydanticAIBaseKernel(MetaKernel):
             "ForgetMagic",
             "EditConfigMagic",
             "WriteConfigMagic",
+            "MCPMagic",
         ]
         self.authorized_magics_names = authorized_magics_names
         self.additional_agent_kwargs = (
@@ -136,7 +139,9 @@ class PydanticAIBaseKernel(MetaKernel):
         self.agent_config = agent_config
 
         self.tools = tools if tools is not None else []
-        self.toolsets = toolsets
+        self.toolsets: list[FunctionToolset | ToolsetFunc] = (
+            list(toolsets) if toolsets is not None else []
+        )
         self.output_type = output_type
         self.is_interrupted = False  # boolean that is triggered by an interrupt_message
         try:

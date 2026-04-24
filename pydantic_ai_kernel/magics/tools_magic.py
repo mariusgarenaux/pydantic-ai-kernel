@@ -1,6 +1,6 @@
 from pydantic_ai_kernel import PydanticAIBaseKernel, BoostedMagic, boosted_option
 from pydantic_ai_kernel.utils import put_text_in_box
-from pydantic_ai import Tool
+from pydantic_ai import Tool, FunctionToolset, ToolsetFunc
 
 
 class ToolMagic(BoostedMagic):
@@ -29,12 +29,16 @@ class ToolMagic(BoostedMagic):
             for each_toolset in self.kernel.toolsets:
                 self.kernel.Print("Toolset :")
                 out = ""
-                for each_tool in each_toolset.tools.values():
-                    out += each_tool.name + "\n"
-                    if verbose:
-                        out += f"{each_tool}"
-                    else:
-                        out += nice_tool_displaying(each_tool)
+                if isinstance(each_toolset, FunctionToolset):
+                    for each_tool in each_toolset.tools.values():
+                        out += each_tool.name + "\n"
+                        if verbose:
+                            out += f"{each_tool}"
+                        else:
+                            out += nice_tool_displaying(each_tool)
+                else:
+                    # each_toolset is a method
+                    out += f"  {each_toolset}"
                 self.kernel.Print(put_text_in_box(out, indent=2))
 
 
