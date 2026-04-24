@@ -299,7 +299,7 @@ class PydanticAIBaseKernel(MetaKernel):
         """
         if self.agent is None:
             raise Exception(
-                r"Load config file before using the agent. Send `%load_config <config_dir>`. See https://github.com/mariusgarenaux/pydantic-ai-kernel to get config scheme."
+                r"Load config file before using the agent. Send `%config`. See https://github.com/mariusgarenaux/pydantic-ai-kernel to get config scheme."
             )
         last_text = ""
         tool_req = None
@@ -372,7 +372,7 @@ class PydanticAIBaseKernel(MetaKernel):
 
             if self.agent is None:
                 raise Exception(
-                    r"Load config file before using the agent. Send `%load_config <config_dir>`. See https://github.com/mariusgarenaux/pydantic-ai-kernel to get config scheme."
+                    r"Load config file before using the agent. Send `%config`. See https://github.com/mariusgarenaux/pydantic-ai-kernel to get config scheme."
                 )
             self.is_interrupted = False
             deferred_tool_result = None

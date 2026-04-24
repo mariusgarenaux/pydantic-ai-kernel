@@ -15,6 +15,10 @@ class ToolMagic(BoostedMagic):
     def line_tools(self, verbose: bool = False):
         """
         %tools : tools of the agent
+
+        Examples :
+        -------
+            • %tools -v : list tools, with verbose output
         """
         self.kernel: PydanticAIBaseKernel  # type hints
         for each_tool in self.kernel.tools:

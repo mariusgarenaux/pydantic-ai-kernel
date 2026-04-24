@@ -40,17 +40,21 @@ Any jupyter frontend should be able to dialog with this kernel, for example :
 
 • **Silik Signal Messaging** : Access the kernel through Signal Message Application, see [here](https://github.com/mariusgarenaux/silik-messaging)
 
-You can also start the kernel without frontend, and connect any frontend to it in a separate process :
+For example :
 
 ```bash
-jupyter kernel --kernel pydantic_ai --KernelManager.connection_file ./pydantic_ai_kernel.json
+jupyter console --kernel pydantic_ai
 ```
 
-Then, for example (this would work with notebooks or any jupyter frontend) :
+In the kernel, send :
 
-```bash
-jupyter console --ConnectionFileMixin.connection_file ./pydantic_ai_kernel.json
+```text
+%config
 ```
+
+to create the config file, and start chat. See below for more informations.
+
+> `%help <magic_name>` and `%magic` will give you appropriate documentation
 
 ## Configuration file
 
@@ -61,12 +65,12 @@ By default, kernel starts by looking for a configuration file here :
 But you can also run the kernel as is; and specify the path to a config file by executing the following message in a cell :
 
 ```text
-%load_config <path_to_kernel_config_file>
+%config --path <path_to_kernel_config_file>
 ```
 
 This allows to have different instances of the same kernel, each with its own system prompt and / or inference provider.
 
-You can also run the magic : `%make_config` to create and edit the config file from the kernel itself. Give it a flag --template (ollama, open_web_ui, openai) to save time.
+You can also run the magic : `%config --edit` to create and edit the config file from the kernel itself. Give it a flag --template (ollama, open_web_ui, openai) to save time.
 
 ### Detailed description of the configuration file
 
@@ -228,6 +232,20 @@ You can set `PYDANTIC_AI_KERNEL_LOG_FILE` to specify where the log file is saved
 For subclasses, logger can be accessed with `self.log`(e.g.`self.log.debug('hey')`).
 
 Without any of these environment variables, the ipykernel base logger is used (self.log).
+
+### Running kernel in separate process
+
+You can also start the kernel without frontend, and connect any frontend to it in a separate process :
+
+```bash
+jupyter kernel --kernel pydantic_ai --KernelManager.connection_file ./pydantic_ai_kernel.json
+```
+
+Then, for example (this would work with notebooks or any jupyter frontend) :
+
+```bash
+jupyter console --ConnectionFileMixin.connection_file ./pydantic_ai_kernel.json
+```
 
 ## Dealing with multi-agents
 

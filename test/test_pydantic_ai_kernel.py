@@ -22,7 +22,7 @@ class TestPydanticAIKernel(jtk.KernelTests):
     # tab-completion samples: `text` is the partial input,
     # `matches` is a set of strings that must appear in the reply
     completion_samples = [
-        {"text": r"%load", "matches": {r"%load_config"}},
+        {"text": r"%con", "matches": {r"%config"}},
     ]
 
     # used by console clients to decide whether to execute on <Enter>

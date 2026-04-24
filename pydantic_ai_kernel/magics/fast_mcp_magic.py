@@ -14,6 +14,13 @@ class FastMCPMagic(BoostedMagic):
         "--config", "-c", help="The path towards a JSON MCP Configuration file."
     )
     def line_fastmcp(self, url: str | None = None, config: str | None = None):
+        """
+        %fastmcp --url <mcp_server_url | local file path> : add an MCP server to agent tools
+
+        Examples :
+        -------
+            • %fastmcp --url http://127.0.0.1:8000/mcp
+        """
         if url is not None:
             mcp_toolset = FastMCPToolset(url)
             to_display = f"located at : {url}"

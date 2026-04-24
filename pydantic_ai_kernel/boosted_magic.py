@@ -221,14 +221,7 @@ def _boosted_parse_args(
 
 def _format_action(action: argparse.Action):
     out = ""
-    for opt_str in action.option_strings:
-        out += opt_str + " "
-    out += "\n"
-    if action.choices is not None:
-        out += "choices : " + str(action.choices)
-        out += "\n"
-    if action.help is not None:
-        out += "help : " + action.help
+    out = ", ".join(action.option_strings) + f" : {action.help}"
     return out
 
 

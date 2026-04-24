@@ -36,12 +36,12 @@ class AgentHistoryMagic(BoostedMagic):
     )
     def line_agent_history(self, light: bool = False, raw: bool = False) -> None:
         """
-        %agent_history - display the agent history
+        %agent_history : displays the agent history
 
         Examples :
-        ---
-            - `%agent_history -l` : display the cells nicely, without ANSI colors
-            - `%agent_history -r` : display the raw json history of agent from pydantic-ai
+        -------
+            • `%agent_history -l` : display the cells nicely, without ANSI colors
+            • `%agent_history -r` : display the raw json history of agent from pydantic-ai
 
         """
 

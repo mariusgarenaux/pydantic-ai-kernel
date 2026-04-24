@@ -5,7 +5,7 @@ from metakernel import Magic
 class ForgetMagic(Magic):
     def line_forget(self):
         """
-        %forget - empty the agent history.
+        %forget : empty the agent history.
         """
         self.kernel: PydanticAIBaseKernel
         self.kernel.agent_history = []

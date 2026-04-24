@@ -57,6 +57,18 @@ class MCPMagic(BoostedMagic):
         stdio_args: list[str] | None = None,
         sse: bool = False,
     ):
+        """
+        %mcp : adds an MCP server to tools of the agent
+
+        Examples :
+        -------
+            • %mcp --url http://127.0.0.1:8000/mcp : connects
+                to server with streamable-http
+            • %mcp --stdio_cmd python --stdio_args ['my_mcp.py'] :
+                connects to MCP server through stdin / stdout
+            • %mcp --url http://127.0.0.1:8000/sse : connects
+                to server with sse
+        """
         if url is not None:
             if sse:
                 mcp_toolset = create_mcp_toolset("sse", url=url)
