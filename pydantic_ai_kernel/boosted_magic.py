@@ -145,10 +145,13 @@ class BoostedMagic(Magic):
             return []
 
         if len(args) > 0:
+            self.kernel.log.info(f"Modifying -- and - tokens : {completed}")
             result = []
             last_token = args[-1]
             self.kernel.log.info(f"last token : {last_token}")
             for each_match in completed:
+                if each_match == last_token:
+                    continue
                 # for option tokens (starting with '-'), metakernel does
                 # not replace the full token, but adds the completion.
                 # so we need to truncate it. Somehow, tokens starting
