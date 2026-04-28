@@ -1,6 +1,6 @@
 """An example Jupyter kernel"""
 
-__version__ = "1.3.7"
+__version__ = "1.3.8"
 
 
 from .kernel import PydanticAIBaseKernel  # noqa: F401
