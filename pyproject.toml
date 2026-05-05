@@ -13,7 +13,7 @@ dependencies = [
     "pydantic>=2.12.3",
     "pydantic-ai>=1.34.0",
     "pyyaml>=6.0.3",
-    "metakernel>=0.31.0",
+    "metakernel>=1.0.0",
     "statikomand>=0.1.1",
 ]
 authors = [
