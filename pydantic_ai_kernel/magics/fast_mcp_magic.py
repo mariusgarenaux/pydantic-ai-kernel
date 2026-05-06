@@ -1,6 +1,7 @@
 from pydantic_ai_kernel import PydanticAIBaseKernel, BoostedMagic, boosted_option
 from pydantic_ai_kernel.utils import MCPToolsetError
 from pydantic_ai.toolsets.fastmcp import FastMCPToolset
+from pydantic_ai import ApprovalRequiredToolset
 
 
 class FastMCPMagic(BoostedMagic):
@@ -13,7 +14,18 @@ class FastMCPMagic(BoostedMagic):
     @boosted_option(
         "--config", "-c", help="The path towards a JSON MCP Configuration file."
     )
-    def line_fastmcp(self, url: str | None = None, config: str | None = None):
+    @boosted_option(
+        "--no-approval",
+        default=False,
+        action="store_true",
+        help="If set, the MCP server will not need user approval for tool execution",
+    )
+    def line_fastmcp(
+        self,
+        url: str | None = None,
+        config: str | None = None,
+        no_approval: bool = False,
+    ):
         """
         %fastmcp --url <mcp_server_url | local file path> : add an MCP server to agent tools
 
@@ -37,7 +49,14 @@ class FastMCPMagic(BoostedMagic):
         if self.kernel.toolsets is None:
             self.kernel.toolsets = [mcp_toolset]
         else:
-            self.kernel.toolsets.append(mcp_toolset)
+            if no_approval:
+                toolset = mcp_toolset
+            else:
+                toolset = ApprovalRequiredToolset(
+                    mcp_toolset
+                )  # by default, MCP requires
+            # approval for all calls
+            self.kernel.toolsets.append(toolset)
 
         # reset agent
         self.kernel.agent = self.kernel.create_agent()

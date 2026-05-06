@@ -1,6 +1,7 @@
 from pydantic_ai_kernel import PydanticAIBaseKernel, BoostedMagic, boosted_option
 from pydantic_ai_kernel.utils import MCPToolsetError
 from pydantic_ai.mcp import MCPServerStreamableHTTP, MCPServerSSE, MCPServerStdio
+from pydantic_ai import ApprovalRequiredToolset
 
 
 def create_mcp_toolset(
@@ -50,12 +51,19 @@ class MCPMagic(BoostedMagic):
         default=False,
         help="Whether to use HTTP server with sse.",
     )
+    @boosted_option(
+        "--no-approval",
+        default=False,
+        action="store_true",
+        help="If set, the MCP server will not need user approval for tool execution",
+    )
     def line_mcp(
         self,
         url: str | None = None,
         stdio_cmd: str | None = None,
         stdio_args: list[str] | None = None,
         sse: bool = False,
+        no_approval: bool = False,
     ):
         """
         %mcp : adds an MCP server to tools of the agent
@@ -90,7 +98,14 @@ class MCPMagic(BoostedMagic):
         if self.kernel.toolsets is None:
             self.kernel.toolsets = [mcp_toolset]
         else:
-            self.kernel.toolsets.append(mcp_toolset)
+            if no_approval:
+                toolset = mcp_toolset
+            else:
+                toolset = ApprovalRequiredToolset(
+                    mcp_toolset
+                )  # by default, MCP requires
+            # approval for all calls
+            self.kernel.toolsets.append(toolset)
 
         # reset agent
         self.kernel.agent = self.kernel.create_agent()
