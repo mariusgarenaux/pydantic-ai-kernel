@@ -50,7 +50,7 @@ def put_text_in_box(text: str, indent: int) -> str:
     Example : (text = 'Hey !', indent=4)
     ---
             │   Hey !
-            ╰───────────────────────────────
+            ╰───────────────────────────────■
 
     Parameters :
     ---
@@ -66,7 +66,7 @@ def put_text_in_box(text: str, indent: int) -> str:
     preshift = " " * indent + "│" + " " * 3
 
     out += f"{textwrap.indent(text, preshift, predicate=lambda line: True)}\n"
-    out += " " * indent + "╰─" + "─" * 30 + "\n"
+    out += " " * indent + "╰─" + "─" * 30 + "■" + "\n"
     return out
 
 

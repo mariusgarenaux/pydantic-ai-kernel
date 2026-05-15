@@ -1,9 +1,9 @@
 from pydantic_ai import UserError
 from pydantic_ai.models import infer_model, Model
 from pydantic_ai.providers import infer_provider_class, Provider
-from typing import Annotated, Any, Literal
-from pydantic import BaseModel, Field
-
+from typing import Annotated, Any, Literal, Optional
+from pydantic import BaseModel, Field, field_validator
+import os
 
 AllModelKind = Literal[
     "test",
@@ -151,6 +151,9 @@ class ModelProviderConfig(BaseModel):
         return ProviderConstructor(**self.params)
 
 
+class MCPServerConfig(BaseModel): ...
+
+
 class ModelConfig(BaseModel):
     """
     Describe a model and its inference provider. Is given to pydantic-ai
@@ -224,14 +227,39 @@ class AgentConfig(BaseModel):
     system_prompt: Annotated[
         str,
         Field(
-            description="The system prompt for this agent.",
+            description="The system prompt for this agent, or a path towards a text file containing system prompt.",
             examples=[
                 "You are a nice agent who answers nicely to requests of the user",
                 "You are a specialist in cooking and are always willing to provide informations on new cooking recipees.",
+                "/Users/mgg/Documents/system_prompt.txt",
+                "/Users/mgg/Documents/system_prompt.md",
             ],
         ),
     ]
     model: ModelConfig
+    local_tools: Annotated[
+        Optional[list[str]],
+        Field(
+            description="A list of local paths towards python files containing functions that will be used as tools."
+        ),
+    ] = None
+    mcp: Annotated[
+        Optional[list[MCPServerConfig]],
+        Field(description="A list of MCP server configuration to connect to"),
+    ] = None
+
+    @field_validator("system_prompt", mode="after")
+    @classmethod
+    def load_system_prompt(cls, value: str):
+        """
+        If system prompt argument is a path, loads it.
+        Else, does nothing.
+        """
+        if os.path.isfile(value):
+            with open(value, "rt") as f:
+                o = f.read()
+            return o
+        return value
 
 
 if __name__ == "__main__":

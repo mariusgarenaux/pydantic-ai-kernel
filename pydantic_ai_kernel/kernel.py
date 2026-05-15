@@ -9,12 +9,13 @@ import sys
 import os
 import traceback
 from pathlib import Path
-from typing import Type, Any, Optional, AsyncIterable, Sequence
+from typing import Type, Any, Optional, AsyncIterable, Sequence, Annotated
 
 # External python dependencies
 from metakernel import MetaKernel, Magic
 import logging
 import yaml
+from pydantic import BaseModel, Field
 from pydantic_ai import (
     Agent,
     ModelRequest,
@@ -28,6 +29,7 @@ from pydantic_ai import (
     DeferredToolResults,
     AgentStreamEvent,
     RunContext,
+    ToolReturnPart,
 )
 from datetime import datetime
 
@@ -53,6 +55,13 @@ def add_custom_logger_handler(logger: logging.Logger):
     logger.addHandler(fh)
     log_level = os.getenv("PYDANTIC_AI_KERNEL_LOG_LEVEL", "INFO")
     logger.setLevel(log_level)
+
+
+# class AgentStrOutput(BaseModel):
+#     final_answer: Annotated[
+#         str,
+#         Field(description="Any string that will be displayed to the user."),
+#     ]
 
 
 class PydanticAIBaseKernel(MetaKernel):
@@ -249,6 +258,7 @@ class PydanticAIBaseKernel(MetaKernel):
         except NotImplementedError as e:
             model = self.agent_config.model.model_name
             self.log.warning(e)
+
         agent = Agent(
             model,
             output_type=[self.output_type, DeferredToolRequests],
@@ -256,6 +266,7 @@ class PydanticAIBaseKernel(MetaKernel):
             tools=self.tools,
             toolsets=self.toolsets,
             name=self.agent_config.agent_name,
+            # end_strategy="exhaustive",
             **self.additional_agent_kwargs,
         )
 
@@ -263,6 +274,7 @@ class PydanticAIBaseKernel(MetaKernel):
 
     async def handle_event(self, event: AgentStreamEvent):
         if isinstance(event, DeferredToolRequests):
+            self.log.info(f"Tool deferred : {event}")
             return
 
     async def event_stream_handler(
@@ -271,6 +283,7 @@ class PydanticAIBaseKernel(MetaKernel):
         event_stream: AsyncIterable[AgentStreamEvent],
     ):
         async for event in event_stream:
+            self.log.info(f"Event stream got event : {event}")
             await self.handle_event(event)
 
     async def run_agent(
@@ -307,7 +320,7 @@ class PydanticAIBaseKernel(MetaKernel):
             prompt,
             message_history=self.agent_history,
             deferred_tool_results=deferred_tool_result,
-            event_stream_handler=self.event_stream_handler,
+            # event_stream_handler=self.event_stream_handler,
         ) as response:
             async for out in response.stream_output():
                 if self.is_interrupted:
@@ -317,12 +330,14 @@ class PydanticAIBaseKernel(MetaKernel):
                     # for the moment, a warning is displayed
                     raise UserInterruptionError("Execution stopped by user")
 
+                self.log.info(f"Here out : {out}")
                 if isinstance(out, DeferredToolRequests):
                     tool_req = out
                     continue
-                sendable_text = str(out).removeprefix(last_text)
-                last_text += sendable_text
-                self.Print(sendable_text, sep="", end="")
+                if isinstance(out, str):
+                    sendable_text = out.removeprefix(last_text)
+                    last_text += sendable_text
+                    self.Print(sendable_text, sep="", end="")
 
             # this line could break things, because we bet
             # here that frontends that can't display markdown
@@ -402,7 +417,28 @@ class PydanticAIBaseKernel(MetaKernel):
                             result = True
                         results.approvals[call.tool_call_id] = result
                     deferred_tool_result = results
-                else:
+                elif isinstance(agent_out, str):
+                    break
+                else:  # here, check for unprocessed tool calls, and remove them
+                    last_msg = self.agent_history[-1]
+                    # self.log.info(f"Last message : {last_msg}")
+                    # self.log.info(f"Last message first part : {last_msg.parts[0]}")
+                    # self.log.info(
+                    #     f"Last message first part content : {last_msg.parts[0].content}"
+                    # )
+                    if (
+                        isinstance(last_msg, ModelRequest)
+                        and isinstance(last_msg.parts[0], ToolReturnPart)
+                        and last_msg.parts[0].content
+                        == "Tool not executed - a final result was already processed."
+                    ):
+                        self.agent_history.pop(-1)
+                        self.agent_history.pop(-1)
+                        self.log.info(
+                            f"Popped last elem. Agent history now : {self.agent_history}"
+                        )
+                        # TODO : force for deferred tool in this case also (else some tool
+                        # calls are skipped)
                     break
 
         except Exception:
@@ -410,12 +446,12 @@ class PydanticAIBaseKernel(MetaKernel):
 
     async def do_is_complete(self, code: str) -> dict[str, str]:
         """
-         Overwrites metakernel do_is_complete to have :
-             - magic commands requires an empty line (as usual)
-             - non-magic commands do not need an empty line
-             - non-magic commands can be multiline if the line
-                 ends with ' '.
-        u"""
+        Overwrites metakernel do_is_complete to have :
+            - magic commands requires an empty line (as usual)
+            - non-magic commands do not need an empty line
+            - non-magic commands can be multiline if the line
+                ends with ' '.
+        """
         if code.startswith(self.magic_prefixes["magic"]):
             ## force requirement to end with an empty line
             if code.endswith("\n"):
@@ -432,10 +468,10 @@ class PydanticAIBaseKernel(MetaKernel):
         """
         This method is called when an interrupt_request message is received.
 
-        By default, Ipykernel restart the kernel on an interrupt request.
+        By default, IPykernel restart the kernel on an interrupt request.
         We override this here, to make an early stop of the agent stream.
         """
-        self.log.info("Cell interuption asked ")
+        self.log.info("Cell interuption asked")
         if not self.session:
             return
 

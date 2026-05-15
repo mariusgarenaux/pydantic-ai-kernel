@@ -11,10 +11,10 @@ from tempfile import TemporaryDirectory
 
 
 # use 'python' executable for portable wheels
-#
+
 kernel_json = {
     "argv": ["python", "-m", "pydantic_ai_kernel", "-f", "{connection_file}"],
-    "display_name": "Pydantic AI Base kernel",
+    "display_name": "Pydantic AI Agent",
     "language": "text",
     "interrupt_mode": "message",
 }
@@ -34,6 +34,8 @@ class CustomHook(BuildHookInterface):
 
             # Requires logo files in kernel root directory
             cur_path = os.path.dirname(os.path.realpath(__file__))
+            # print(f"cur path : {cur_path}")
+            # print(f"td : {td}")
             for logo in ["logo-32x32.png", "logo-64x64.png"]:
                 try:
                     shutil.copy(os.path.join(cur_path, logo), td)
