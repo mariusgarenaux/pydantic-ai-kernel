@@ -5,3 +5,4 @@
 **/data_kernelspec
 .pytest_cache
 **/logs
+**/.ipynb_checkpoints

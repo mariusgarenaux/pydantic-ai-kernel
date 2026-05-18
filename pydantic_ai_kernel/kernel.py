@@ -9,13 +9,12 @@ import sys
 import os
 import traceback
 from pathlib import Path
-from typing import Type, Any, Optional, AsyncIterable, Sequence, Annotated
+from typing import Type, Any, Optional, AsyncIterable, Sequence
 
 # External python dependencies
 from metakernel import MetaKernel, Magic
 import logging
 import yaml
-from pydantic import BaseModel, Field
 from pydantic_ai import (
     Agent,
     ModelRequest,
