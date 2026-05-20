@@ -24,6 +24,9 @@ from pydantic_ai import (
     ToolsetFunc,
     Tool,
     DeferredToolRequests,
+    UserPromptNode,
+    ModelRequestNode,
+    CallToolsNode,
     ToolDenied,
     DeferredToolResults,
     AgentStreamEvent,
@@ -285,10 +288,25 @@ class PydanticAIBaseKernel(MetaKernel):
             self.log.info(f"Event stream got event : {event}")
             await self.handle_event(event)
 
+    def deal_with_user_prompt_node(self, user_prompt_node: UserPromptNode):
+        self.Print(user_prompt_node)
+
+    async def deal_with_model_request_node(
+        self, model_request_node: ModelRequestNode, ctx
+    ):
+        async with model_request_node.stream(ctx) as request_stream:
+            self.Print(model_request_node)
+
+    def deal_with_call_tools_node(self, call_tool_node: CallToolsNode):
+        self.Print(call_tool_node)
+
+    def deal_with_end_node(self, end_node):
+        self.Print(end_node)
+
     async def run_agent(
         self,
         prompt: Optional[str],
-        deferred_tool_result: Optional[DeferredToolResults] = None,
+        deferred_tool_results: Optional[DeferredToolResults] = None,
     ) -> Optional[DeferredToolRequests]:
         """
         Runs the agent. Streams the output to stdout. Returns a DeferredToolRequest
@@ -314,46 +332,63 @@ class PydanticAIBaseKernel(MetaKernel):
                 r"Load config file before using the agent. Send `%config`. See https://github.com/mariusgarenaux/pydantic-ai-kernel to get config scheme."
             )
         last_text = ""
+        sendable_text = ""
         tool_req = None
-        async with self.agent.run_stream(
-            prompt,
+        async with self.agent.iter(
+            user_prompt=prompt,
             message_history=self.agent_history,
-            deferred_tool_results=deferred_tool_result,
-            # event_stream_handler=self.event_stream_handler,
-        ) as response:
-            async for out in response.stream_output():
-                if self.is_interrupted:
-                    # https://github.com/pydantic/pydantic-ai/issues/1524
-                    # TODO : wait pydantic-ai implements clean close
-                    # of stream loop
-                    # for the moment, a warning is displayed
-                    raise UserInterruptionError("Execution stopped by user")
+            deferred_tool_results=deferred_tool_results,
+        ) as agent_run:
+            async for node in agent_run:
+                if Agent.is_user_prompt_node(node):
+                    self.deal_with_user_prompt_node(node)
+                elif Agent.is_model_request_node(node):
+                    await self.deal_with_model_request_node(node, agent_run.ctx)
+                elif Agent.is_call_tools_node(node):
+                    self.deal_with_call_tools_node
+                elif Agent.is_end_node(node):
+                    self.deal_with_end_node(node)
 
-                self.log.info(f"Here out : {out}")
-                if isinstance(out, DeferredToolRequests):
-                    tool_req = out
-                    continue
-                if isinstance(out, str):
-                    sendable_text = out.removeprefix(last_text)
-                    last_text += sendable_text
-                    self.Print(sendable_text, sep="", end="")
+        # async with self.agent.run_stream(
+        #     prompt,
+        #     message_history=self.agent_history,
+        #     deferred_tool_results=deferred_tool_results,
+        #     # event_stream_handler=self.event_stream_handler,
+        # ) as response:
+        #     response.stream_text
+        #     async for model_response, is_ended in response.stream_responses():
+        #         if self.is_interrupted:
+        #             # https://github.com/pydantic/pydantic-ai/issues/1524
+        #             # TODO : wait pydantic-ai implements clean close
+        #             # of stream loop
+        #             # for the moment, a warning is displayed
+        #             raise UserInterruptionError("Execution stopped by user")
 
-            # this line could break things, because we bet
-            # here that frontends that can't display markdown
-            # are also those that can't clear output
-            # (for ex. jupyter console).
-            # since there is no way to know if a frontend
-            # really clears output on clear_output, this
-            # remains the best option
-            self.Display(
-                {"text/markdown": last_text},
-                clear_output=True,
-            )
+        #         self.log.info(f"Here out : {model_response}")
 
-            all_msg = response.all_messages()
-            self.log.debug(f"Adding : {all_msg} to agent history.")
-            self.agent_history = all_msg
-        return tool_req
+        #         # if isinstance(model_response, DeferredToolRequests):
+        #         #     tool_req = out
+        #         #     continue
+        #         # if isinstance(out, str):
+        #         #     sendable_text = out.removeprefix(last_text)
+        #         #     last_text += sendable_text
+        #         #     self.Print(sendable_text, sep="", end="")
+        #     # this line could break things, because we bet
+        #     # here that frontends that can't display markdown
+        #     # are also those that can't clear output
+        #     # (for ex. jupyter console).
+        #     # since there is no way to know if a frontend
+        #     # really clears output on clear_output, this
+        #     # remains the best option
+        #     self.Display(
+        #         {"text/markdown": last_text},
+        #         clear_output=True,
+        #     )
+
+        #     all_msg = response.all_messages()
+        #     self.log.debug(f"Adding : {all_msg} to agent history.")
+        #     self.agent_history = all_msg
+        # return tool_req
 
     def ask_user_approval(self, prompt: Optional[str] = None) -> bool:
         """
@@ -397,7 +432,7 @@ class PydanticAIBaseKernel(MetaKernel):
                 # and then re-run the agent.
                 prompt = code if deferred_tool_result is None else None
                 agent_out = await self.run_agent(
-                    prompt, deferred_tool_result=deferred_tool_result
+                    prompt, deferred_tool_results=deferred_tool_result
                 )
 
                 self.log.info(f"Agent out : {agent_out}")

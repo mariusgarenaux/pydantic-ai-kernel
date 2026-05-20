@@ -33,6 +33,9 @@ class FastMCPMagic(BoostedMagic):
         -------
             • %fastmcp --url http://127.0.0.1:8000/mcp
         """
+        self.kernel.log.warning(
+            "%fastmcp magic is deprecated, from pydantic-ai. Use %mcp magic instead."
+        )
         if url is not None:
             mcp_toolset = FastMCPToolset(url)
             to_display = f"located at : {url}"
