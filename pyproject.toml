@@ -7,11 +7,11 @@ name = "pydantic-ai-kernel"
 dynamic = ["version"]
 description = "Base kernel for pydantic-ai kernels"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = { file = "LICENSE-2.0.txt" }
 dependencies = [
     "pydantic>=2.12.3",
-    "pydantic-ai>=1.34.0",
+    "pydantic-ai>=1.101.0",
     "pyyaml>=6.0.3",
     "metakernel>=1.0.0",
     "statikomand>=0.1.1",

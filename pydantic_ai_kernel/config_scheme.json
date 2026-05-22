@@ -108,15 +108,68 @@
       "type": "string"
     },
     "system_prompt": {
-      "description": "The system prompt for this agent.",
+      "description": "The system prompt for this agent, or a path towards a text file containing system prompt.",
       "examples": [
         "You are a nice agent who answers nicely to requests of the user",
-        "You are a specialist in cooking and are always willing to provide informations on new cooking recipees."
+        "You are a specialist in cooking and are always willing to provide informations on new cooking recipees.",
+        "/Users/mgg/Documents/system_prompt.txt",
+        "/Users/mgg/Documents/system_prompt.md"
       ],
       "title": "System Prompt",
       "type": "string"
     },
-    "model": { "$ref": "#/$defs/ModelConfig" }
+    "model": { "$ref": "#/$defs/ModelConfig" },
+    "mcp_servers": {
+      "anyOf": [
+        { "additionalProperties": true, "type": "object" },
+        { "type": "null" }
+      ],
+      "default": null,
+      "description": "A dictionnary of MCP server configuration to connect to. Keys are MCP server names.",
+      "examples": [
+        {
+          "time_mcp_server": {
+            "args": ["mcp-run-python", "stdio"],
+            "command": "uvx"
+          },
+          "weather_server": { "args": ["mcp_server.py"], "command": "python" }
+        },
+        {
+          "calculator": { "url": "http://localhost:8000/mcp" },
+          "python-runner": {
+            "args": ["run", "mcp-run-python", "stdio"],
+            "command": "uv"
+          },
+          "weather": { "args": ["mcp_server.py"], "command": "python" },
+          "weather-api": { "url": "http://localhost:3001/sse" }
+        }
+      ],
+      "title": "Mcp Servers"
+    },
+    "mcp_servers_user_approval": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "anyOf": [
+              { "type": "boolean" },
+              { "additionalProperties": true, "type": "object" }
+            ]
+          },
+          "type": "object"
+        },
+        { "type": "null" }
+      ],
+      "default": null,
+      "description": "For each MCP server, information about whether the tool requires user approval or not. Can be either a boolean : True = All tools in the MCP server requires user validation (False = all tools **don't** requires validation). Or can be a dict where keys are tool names, and values boolean. When not specified, a tool needs user validation by default.",
+      "examples": [
+        {
+          "calculator": false,
+          "python-runner": true,
+          "weather-api": { "authenticate_to_api": false, "get_weather": true }
+        }
+      ],
+      "title": "Mcp Servers User Approval"
+    }
   },
   "required": ["agent_name", "system_prompt", "model"],
   "title": "AgentConfig",

@@ -1,8 +1,17 @@
-from pydantic_ai import UserError
+from pydantic_ai import (
+    UserError,
+    AbstractToolset,
+    PrefixedToolset,
+    ApprovalRequiredToolset,
+)
+from pydantic_ai.mcp import load_mcp_toolsets
 from pydantic_ai.models import infer_model, Model
 from pydantic_ai.providers import infer_provider_class, Provider
-from typing import Annotated, Any, Literal, Optional
-from pydantic import BaseModel, Field, field_validator
+from typing import Annotated, Any, Literal, Optional, Dict, Self
+from pydantic import BaseModel, Field, field_validator, model_validator, ValidationError
+from tempfile import NamedTemporaryFile
+from pathlib import Path
+import json
 import os
 
 AllModelKind = Literal[
@@ -151,9 +160,6 @@ class ModelProviderConfig(BaseModel):
         return ProviderConstructor(**self.params)
 
 
-class MCPServerConfig(BaseModel): ...
-
-
 class ModelConfig(BaseModel):
     """
     Describe a model and its inference provider. Is given to pydantic-ai
@@ -237,15 +243,42 @@ class AgentConfig(BaseModel):
         ),
     ]
     model: ModelConfig
-    local_tools: Annotated[
-        Optional[list[str]],
+    mcp_servers: Annotated[
+        Optional[Dict[str, Any]],
         Field(
-            description="A list of local paths towards python files containing functions that will be used as tools."
+            description="A dictionnary of MCP server configuration to connect to. Keys are MCP server names.",
+            examples=[
+                {
+                    "time_mcp_server": {
+                        "command": "uvx",
+                        "args": ["mcp-run-python", "stdio"],
+                    },
+                    "weather_server": {"command": "python", "args": ["mcp_server.py"]},
+                },
+                {
+                    "python-runner": {
+                        "command": "uv",
+                        "args": ["run", "mcp-run-python", "stdio"],
+                    },
+                    "weather": {"command": "python", "args": ["mcp_server.py"]},
+                    "weather-api": {"url": "http://localhost:3001/sse"},
+                    "calculator": {"url": "http://localhost:8000/mcp"},
+                },
+            ],
         ),
     ] = None
-    mcp: Annotated[
-        Optional[list[MCPServerConfig]],
-        Field(description="A list of MCP server configuration to connect to"),
+    mcp_servers_user_approval: Annotated[
+        Optional[Dict[str, bool | dict]],
+        Field(
+            description="For each MCP server, information about whether the tool requires user approval or not. Can be either a boolean : True = All tools in the MCP server requires user validation (False = all tools **don't** requires validation). Or can be a dict where keys are tool names, and values boolean. When not specified, a tool needs user validation by default.",
+            examples=[
+                {
+                    "python-runner": True,
+                    "weather-api": {"get_weather": True, "authenticate_to_api": False},
+                    "calculator": False,
+                }
+            ],
+        ),
     ] = None
 
     @field_validator("system_prompt", mode="after")
@@ -260,6 +293,54 @@ class AgentConfig(BaseModel):
                 o = f.read()
             return o
         return value
+
+    def create_toolsets(self) -> list[AbstractToolset]:
+        """
+        Uses config file to create abstract toolsets
+        """
+        if self.mcp_servers is None:
+            return []
+        with NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump({"mcpServers": self.mcp_servers}, f)
+            temp_path = f.name
+        toolsets = load_mcp_toolsets(temp_path)
+
+        if self.mcp_servers_user_approval is None:
+            mcp_servers_user_approval = {
+                each_mcp: True for each_mcp in self.mcp_servers
+            }
+        else:
+            mcp_servers_user_approval = self.mcp_servers_user_approval
+
+        out_toolsets = []
+        for each_mcp in toolsets:
+            if not isinstance(each_mcp, PrefixedToolset):
+                continue
+            if (
+                each_mcp.wrapped.id not in mcp_servers_user_approval
+                or each_mcp.wrapped.id is None
+            ):
+                continue
+
+            user_approval = mcp_servers_user_approval[each_mcp.wrapped.id]
+            if isinstance(user_approval, bool):
+                if user_approval:
+                    checked_toolset = ApprovalRequiredToolset(each_mcp)
+                else:
+                    checked_toolset = each_mcp
+            elif isinstance(user_approval, dict):
+                checked_toolset = each_mcp.approval_required(
+                    lambda ctx, tool_def, tool_args: user_approval.get(
+                        tool_def.name, True
+                    )
+                )
+            else:
+                continue
+            out_toolsets.append(checked_toolset)
+
+        Path(temp_path).unlink()
+
+        return out_toolsets
 
 
 if __name__ == "__main__":

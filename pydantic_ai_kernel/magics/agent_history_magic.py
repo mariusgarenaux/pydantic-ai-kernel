@@ -17,7 +17,7 @@ from pydantic_ai.messages import (
     ModelResponsePart,
     TextPart,
     ToolCallPart,
-    BuiltinToolCallPart,
+    NativeToolCallPart,
     ModelMessagesTypeAdapter,
     ThinkingPart,
     FilePart,
@@ -106,7 +106,7 @@ def nice_display_model_message_part(
     elif isinstance(part, TextPart):
         title = "Text"
         content = part.content
-    elif isinstance(part, ToolCallPart) or isinstance(part, BuiltinToolCallPart):
+    elif isinstance(part, ToolCallPart) or isinstance(part, NativeToolCallPart):
         title = "Tool Calling"
         content = (
             f"Name : `{part.tool_name}`\nArgs :\n{nice_display_tool_args(part.args)}"

@@ -17,6 +17,8 @@ import logging
 import yaml
 from pydantic_ai import (
     Agent,
+    AbstractToolset,
+    PrefixedToolset,
     ModelRequest,
     ModelMessage,
     TextPart,
@@ -26,8 +28,6 @@ from pydantic_ai import (
     ThinkingPart,
     ThinkingPartDelta,
     PartStartEvent,
-    FunctionToolCallEvent,
-    FunctionToolResultEvent,
     PartDeltaEvent,
     PartEndEvent,
     ToolsetFunc,
@@ -153,7 +153,7 @@ class PydanticAIBaseKernel(MetaKernel):
         self.agent_config = agent_config
 
         self.tools = tools if tools is not None else []
-        self.toolsets: list[FunctionToolset | ToolsetFunc] = (
+        self.toolsets: list[AbstractToolset | FunctionToolset | ToolsetFunc] = (
             list(toolsets) if toolsets is not None else []
         )
         self.output_type = output_type
@@ -169,7 +169,7 @@ class PydanticAIBaseKernel(MetaKernel):
                 )
             ]
         except Exception as e:
-            self.log.debug(f"Could not load default config `{e}`")
+            self.log.warning(f"Could not load default config `{e}`")
             self.agent = None
         self.agent_history = []
         self.all_messages_ids = []
@@ -264,6 +264,10 @@ class PydanticAIBaseKernel(MetaKernel):
         except NotImplementedError as e:
             model = self.agent_config.model.model_name
             self.log.warning(e)
+
+        mcp_toolsets = self.agent_config.create_toolsets()
+        self.log.debug(f"Adding mcp toolsets: {mcp_toolsets}")
+        self.toolsets += mcp_toolsets
 
         agent = Agent(
             model,

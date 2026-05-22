@@ -1,5 +1,6 @@
 from pydantic_ai_kernel import PydanticAIBaseKernel, BoostedMagic, boosted_option
 from pydantic_ai_kernel.utils import MCPToolsetError
+from pydantic_ai.mcp import load_mcp_toolsets
 from pydantic_ai.toolsets.fastmcp import FastMCPToolset
 from pydantic_ai import ApprovalRequiredToolset
 
