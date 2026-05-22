@@ -1,7 +1,16 @@
-from pydantic_ai_kernel import PydanticAIBaseKernel, BoostedMagic, boosted_option
+from pydantic_ai_kernel import (
+    PydanticAIBaseKernel,
+    BoostedMagic,
+    boosted_option,
+    complete_from_list,
+)
+import os
 from pydantic_ai_kernel.utils import put_text_in_box
-from pydantic_ai import Tool, FunctionToolset, ToolsetFunc, ApprovalRequiredToolset
+from pydantic_ai import Tool, FunctionToolset, ApprovalRequiredToolset
 from pydantic_ai.toolsets.fastmcp import FastMCPToolset
+
+
+out_formatter_list = ["text", "terminal", "md"]
 
 
 class ToolMagic(BoostedMagic):
@@ -12,15 +21,73 @@ class ToolMagic(BoostedMagic):
         default=False,
         help="Display verbose output",
     )
-    def line_tools(self, verbose: bool = False):
+    @boosted_option(
+        "-f",
+        "--formatter",
+        default=None,
+        help="Formatter for the output. Must be supported by jupyter frontend. All formatter can be set by environment variable PYDANTIC_AI_KERNEL_FORMATTER",
+        choices=out_formatter_list,
+        completer=lambda w, r: complete_from_list(out_formatter_list, w, r),
+    )
+    def line_tools(self, verbose: bool = False, formatter: str | None = None):
         """
         %tools : tools of the agent
 
         Examples :
         -------
             • %tools -v : list tools, with verbose output
+            • %tools --f=markdown : list of tools, mardown formatted
         """
+        env_formatter = os.getenv("PYDANTIC_AI_KERNEL_FORMATTER", "text")
+        if formatter is None:
+            formatter = env_formatter
         self.kernel: PydanticAIBaseKernel  # type hints
+
+        match formatter:
+            case "text" | "terminal":
+                self.text_formatter(verbose)
+            case "md":
+                self.markdown_formatter(verbose)
+            case _:
+                raise NotImplementedError(
+                    f"Unknown formatter : {formatter}. Accepted are : {out_formatter_list}"
+                )
+
+    def markdown_formatter(self, verbose):
+        """
+        Display all tools in markdown
+        """
+        out = ""
+        for each_tool in self.kernel.tools:
+            out += f"### {each_tool.name}  \n"
+            if verbose:
+                out += f"```python  \n{each_tool}```  \n"
+            else:
+                out += nice_tool_displaying(each_tool, formatter="md")
+        if self.kernel.toolsets is not None:
+            for each_toolset in self.kernel.toolsets:
+                out += "\n### toolset  \n"
+                if isinstance(each_toolset, ApprovalRequiredToolset):
+                    each_toolset = each_toolset.wrapped
+                if isinstance(each_toolset, FunctionToolset):
+                    for each_tool in each_toolset.tools.values():
+                        out += f"#### {each_tool.name}  \n"
+                        if verbose:
+                            out += f"{each_tool}  \n"
+                        else:
+                            out += nice_tool_displaying(each_tool, formatter="md")
+                elif isinstance(each_toolset, FastMCPToolset):
+                    out += f"- FastMCP : {each_toolset.client.transport.url}"
+                else:
+                    out += f"- {each_toolset}"
+        self.kernel.Display(
+            {"text/markdown": out},
+        )
+
+    def text_formatter(self, verbose):
+        """
+        Display all tools, in raw text output, ready for terminal.
+        """
         for each_tool in self.kernel.tools:
             self.kernel.Print(each_tool.name)
             if verbose:
@@ -50,11 +117,18 @@ class ToolMagic(BoostedMagic):
                 self.kernel.Print(put_text_in_box(out, indent=2))
 
 
-def nice_tool_displaying(tool: Tool):
+def nice_tool_displaying(tool: Tool, formatter="text"):
     desc = tool.description if tool.description is not None else ""
-    out = f"   description : {desc}\n"
-    out += f"   requires approval : {tool.requires_approval}\n"
-    return out
+    if formatter == "text":
+        out = f"   description : {desc}\n"
+        out += f"   requires approval : {tool.requires_approval}\n"
+        return out
+    elif formatter == "md":
+        out = f"- description : {desc}  \n"
+        out += f"- schema :  \n```json  \n{tool.function_schema.json_schema}  \n```  \n"
+        out += f"- requires approval : {tool.requires_approval}  \n"
+        return out
+    return ""
 
 
 def register_magics(kernel) -> None:

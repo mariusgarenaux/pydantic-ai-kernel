@@ -19,8 +19,17 @@ from pydantic_ai import (
     Agent,
     ModelRequest,
     ModelMessage,
+    TextPart,
+    TextPartDelta,
     SystemPromptPart,
     FunctionToolset,
+    ThinkingPart,
+    ThinkingPartDelta,
+    PartStartEvent,
+    FunctionToolCallEvent,
+    FunctionToolResultEvent,
+    PartDeltaEvent,
+    PartEndEvent,
     ToolsetFunc,
     Tool,
     DeferredToolRequests,
@@ -57,13 +66,6 @@ def add_custom_logger_handler(logger: logging.Logger):
     logger.addHandler(fh)
     log_level = os.getenv("PYDANTIC_AI_KERNEL_LOG_LEVEL", "INFO")
     logger.setLevel(log_level)
-
-
-# class AgentStrOutput(BaseModel):
-#     final_answer: Annotated[
-#         str,
-#         Field(description="Any string that will be displayed to the user."),
-#     ]
 
 
 class PydanticAIBaseKernel(MetaKernel):
@@ -125,6 +127,8 @@ class PydanticAIBaseKernel(MetaKernel):
             - additional_agent_kwargs (dict[str, Any] | None = None) : any kwargs which
                 will be given to pydantic-ai agent initialization.
         """
+        self.formatter = os.getenv("PYDANTIC_AI_KERNEL_FORMATTER", "terminal")
+
         if authorized_magics_names is None:
             authorized_magics_names = []
         authorized_magics_names += [
@@ -289,19 +293,82 @@ class PydanticAIBaseKernel(MetaKernel):
             await self.handle_event(event)
 
     def deal_with_user_prompt_node(self, user_prompt_node: UserPromptNode):
-        self.Print(user_prompt_node)
+        # self.Print(user_prompt_node)
+        ...
 
     async def deal_with_model_request_node(
         self, model_request_node: ModelRequestNode, ctx
     ):
+        # thinking_loop = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+        # thinking_loop_k = 0
         async with model_request_node.stream(ctx) as request_stream:
-            self.Print(model_request_node)
+            out_md = ""
+            async for event in request_stream:
+                # thinking_loop_k += 1
+                # self.Print(f"Event: {event}")
+                if isinstance(event, PartStartEvent):
+                    if isinstance(event.part, ThinkingPart):
 
-    def deal_with_call_tools_node(self, call_tool_node: CallToolsNode):
-        self.Print(call_tool_node)
+                        self.Print("========= Thinking =========")
+                        self.Print(event.part.content, end="")
 
-    def deal_with_end_node(self, end_node):
-        self.Print(end_node)
+                        out_md += "> **Thinking** :  \n"
+                        out_md += f"> {event.part.content}"
+
+                    if isinstance(event.part, TextPart):
+                        self.Print(event.part.content, end="")
+                        out_md += event.part.content
+                if isinstance(event, PartDeltaEvent):
+                    if (
+                        isinstance(event.delta, ThinkingPartDelta)
+                        and event.delta.content_delta is not None
+                    ):
+                        self.Print(
+                            event.delta.content_delta,
+                            end="",
+                        )
+                        out_md += event.delta.content_delta.replace("\n", "  \n> ")
+
+                    if isinstance(event.delta, TextPartDelta):
+                        self.Print(event.delta.content_delta, end="")
+                        out_md += event.delta.content_delta
+                if isinstance(event, PartEndEvent):
+                    if isinstance(event.part, ThinkingPart):
+                        self.Print("\n========= End Think =========")
+                        out_md += "  \n  \n"
+            # this line could break things, because we bet
+            # here that frontends that can't display markdown
+            # are also those that can't clear output
+            # (for ex. jupyter console).
+            # since there is no way to know if a frontend
+            # really clears output on clear_output, this
+            # remains the best option
+            # we could also have an environment variable to set
+            # if the current frontend implements clear_output
+            self.Display(
+                {"text/markdown": out_md},
+                clear_output=True,
+            )
+
+    async def deal_with_call_tools_node(self, call_tools_node: CallToolsNode, ctx):
+        # self.Print(call_tool_node)
+        # self.Print(f"Toooooool call : {call_tools_node}")
+        # async with call_tools_node.stream(ctx) as handle_stream:
+        #     async for event in handle_stream:
+        #         if isinstance(event, FunctionToolCallEvent):
+        #             self.Print(
+        #                 f"[Tools] The LLM calls tool={event.part.tool_name!r} with args={event.part.args} (tool_call_id={event.part.tool_call_id!r})"
+        #             )
+        #         elif isinstance(event, FunctionToolResultEvent):
+        #             self.Print(
+        #                 f"[Tools] Tool call {event.tool_call_id!r} returned => {event.content}"
+        #             )
+        ...
+
+    # def deal_with_end_node(self, end_node):
+    #     return end_node.data.output
+    #     self.Print(end_node)
+    # ...
 
     async def run_agent(
         self,
@@ -331,8 +398,6 @@ class PydanticAIBaseKernel(MetaKernel):
             raise Exception(
                 r"Load config file before using the agent. Send `%config`. See https://github.com/mariusgarenaux/pydantic-ai-kernel to get config scheme."
             )
-        last_text = ""
-        sendable_text = ""
         tool_req = None
         async with self.agent.iter(
             user_prompt=prompt,
@@ -340,55 +405,18 @@ class PydanticAIBaseKernel(MetaKernel):
             deferred_tool_results=deferred_tool_results,
         ) as agent_run:
             async for node in agent_run:
+                # self.Print(f"node : {node}")
                 if Agent.is_user_prompt_node(node):
                     self.deal_with_user_prompt_node(node)
                 elif Agent.is_model_request_node(node):
                     await self.deal_with_model_request_node(node, agent_run.ctx)
                 elif Agent.is_call_tools_node(node):
-                    self.deal_with_call_tools_node
+                    await self.deal_with_call_tools_node(node, agent_run.ctx)
                 elif Agent.is_end_node(node):
-                    self.deal_with_end_node(node)
+                    tool_req = node.data.output  # either str or DeferredToolRequest
+            self.agent_history = agent_run.all_messages()
 
-        # async with self.agent.run_stream(
-        #     prompt,
-        #     message_history=self.agent_history,
-        #     deferred_tool_results=deferred_tool_results,
-        #     # event_stream_handler=self.event_stream_handler,
-        # ) as response:
-        #     response.stream_text
-        #     async for model_response, is_ended in response.stream_responses():
-        #         if self.is_interrupted:
-        #             # https://github.com/pydantic/pydantic-ai/issues/1524
-        #             # TODO : wait pydantic-ai implements clean close
-        #             # of stream loop
-        #             # for the moment, a warning is displayed
-        #             raise UserInterruptionError("Execution stopped by user")
-
-        #         self.log.info(f"Here out : {model_response}")
-
-        #         # if isinstance(model_response, DeferredToolRequests):
-        #         #     tool_req = out
-        #         #     continue
-        #         # if isinstance(out, str):
-        #         #     sendable_text = out.removeprefix(last_text)
-        #         #     last_text += sendable_text
-        #         #     self.Print(sendable_text, sep="", end="")
-        #     # this line could break things, because we bet
-        #     # here that frontends that can't display markdown
-        #     # are also those that can't clear output
-        #     # (for ex. jupyter console).
-        #     # since there is no way to know if a frontend
-        #     # really clears output on clear_output, this
-        #     # remains the best option
-        #     self.Display(
-        #         {"text/markdown": last_text},
-        #         clear_output=True,
-        #     )
-
-        #     all_msg = response.all_messages()
-        #     self.log.debug(f"Adding : {all_msg} to agent history.")
-        #     self.agent_history = all_msg
-        # return tool_req
+        return tool_req
 
     def ask_user_approval(self, prompt: Optional[str] = None) -> bool:
         """
