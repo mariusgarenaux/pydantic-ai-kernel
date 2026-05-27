@@ -169,6 +169,8 @@ class PydanticAIBaseKernel(MetaKernel):
         try:
             if self.agent_config is None:
                 self.agent_config = self.load_config()
+            if getattr(self.agent_config, "formatter", None) is not None:
+                self.formatter = self.agent_config.formatter
 
             self.agent = self.create_agent()
             self.message_history: list[ModelMessage] = [
@@ -353,22 +355,25 @@ class PydanticAIBaseKernel(MetaKernel):
                         self.Print("\n========= End Think =========")
                         out_md += "  \n  \n"
                     elif isinstance(event.part, TextPart):
-                        self.Print(event.part.content, end="")
-                        out_md += event.part.content
+                        ...
+                        # self.Print(event.part.content, end="")
+                        # out_md += event.part.content
 
-            # this line could break things, because we bet
-            # here that frontends that can't display markdown
-            # are also those that can't clear output
-            # (for ex. jupyter console).
-            # since there is no way to know if a frontend
-            # really clears output on clear_output, this
-            # remains the best option
-            # we could also have an environment variable to set
-            # if the current frontend implements clear_output
-            self.Display(
-                {"text/markdown": out_md},
-                clear_output=True,
-            )
+            self.Print(f"FOrmatter : {self.formatter}")
+            if self.formatter == "md":
+                # this line could break things, because we bet
+                # here that frontends that can't display markdown
+                # are also those that can't clear output
+                # (for ex. jupyter console).
+                # since there is no way to know if a frontend
+                # really clears output on clear_output, this
+                # remains the best option
+                # we could also have an environment variable to set
+                # if the current frontend implements clear_output
+                self.Display(
+                    {"text/markdown": out_md},
+                    clear_output=True,
+                )
 
     async def run_agent(
         self,
@@ -455,11 +460,6 @@ class PydanticAIBaseKernel(MetaKernel):
                 self.agent_config = self.load_config()
             self.agent = self.create_agent()
             # Apply formatter from config (fallback to existing value or default)
-            if getattr(self.agent_config, "formatter", None) is not None:
-                self.formatter = self.agent_config.formatter
-            else:
-                self.formatter = "text"
-                self.config_has_changed = False
 
             if self.agent is None:
                 raise Exception(

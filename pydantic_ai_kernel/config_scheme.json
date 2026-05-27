@@ -169,6 +169,19 @@
         }
       ],
       "title": "Mcp Servers User Approval"
+    },
+    "display_thinking": {
+      "default": true,
+      "description": "Whether or not to display thinking text of the model. Default to true.",
+      "title": "Display Thinking",
+      "type": "boolean"
+    },
+    "formatter": {
+      "default": "terminal",
+      "description": "Output formatter for magics (text, terminal, md, json).",
+      "examples": ["text", "terminal", "md", "json"],
+      "title": "Formatter",
+      "type": "string"
     }
   },
   "required": ["agent_name", "system_prompt", "model"],
