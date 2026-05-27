@@ -1756,18 +1756,14 @@ wheels = [
 
 [[package]]
 name = "metakernel"
-version = "1.0.0"
-source = { registry = "https://pypi.org/simple" }
+version = "1.0.4"
+source = { git = "https://github.com/Calysto/metakernel.git?rev=afd3ddd9c0849fe672aed61820e20266bcdf06c2#afd3ddd9c0849fe672aed61820e20266bcdf06c2" }
 dependencies = [
     { name = "comm" },
     { name = "ipykernel" },
     { name = "jedi" },
     { name = "jupyter-core" },
     { name = "pexpect" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/76/1e/8b236222e93a3cd4962314d094f6a4936567e8a0728461f9d3b07a4f0f8f/metakernel-1.0.0.tar.gz", hash = "sha256:76f2b8926cbad5a089deb6f727399c4e34e8915af97896a8bb7968ebe02da21c", size = 229742, upload-time = "2026-03-24T01:24:13.452Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/a5/2b/72e0cc706c2884549323976f1d6221b74e0700f22e827e60b8413204eebb/metakernel-1.0.0-py3-none-any.whl", hash = "sha256:9f90660ce583baffe0235316f3e1a0abf75bbf60039e811ccbedd68ef612fa44", size = 204586, upload-time = "2026-03-24T01:24:11.774Z" },
 ]
 
 [[package]]
@@ -2472,7 +2468,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "metakernel", specifier = ">=1.0.0" },
+    { name = "metakernel", git = "https://github.com/Calysto/metakernel.git?rev=afd3ddd9c0849fe672aed61820e20266bcdf06c2" },
     { name = "pydantic", specifier = ">=2.12.3" },
     { name = "pydantic-ai", specifier = ">=1.101.0" },
     { name = "pyyaml", specifier = ">=6.0.3" },

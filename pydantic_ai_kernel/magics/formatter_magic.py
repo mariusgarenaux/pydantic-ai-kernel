@@ -14,7 +14,10 @@ class FormatterMagic(BoostedMagic):
         if fmt not in allowed:
             self.kernel.Error(f"Invalid formatter '{fmt}'. Allowed: {allowed}")
             return
-        self.kernel.formatter = fmt
+        if self.kernel.agent_config is None:
+            self.kernel.Print("No agent configuration was found. Can't set formatter")
+            return
+        self.kernel.agent_config.formatter = fmt
         self.kernel.Print(f"Formatter set to {fmt}.")
 
 

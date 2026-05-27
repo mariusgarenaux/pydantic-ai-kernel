@@ -3,19 +3,19 @@ requires = ["hatchling>=1.10.0", "jupyter-client"]
 build-backend = "hatchling.build"
 
 [project]
+dependencies = [
+    "pydantic>=2.12.3",
+    "pydantic-ai>=1.101.0",
+    "pyyaml>=6.0.3",
+    "metakernel @ git+https://github.com/Calysto/metakernel.git@afd3ddd9c0849fe672aed61820e20266bcdf06c2#egg=metakernel",
+    "statikomand>=0.1.1",
+]
 name = "pydantic-ai-kernel"
 dynamic = ["version"]
 description = "Base kernel for pydantic-ai kernels"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE-2.0.txt" }
-dependencies = [
-    "pydantic>=2.12.3",
-    "pydantic-ai>=1.101.0",
-    "pyyaml>=6.0.3",
-    "metakernel>=1.0.0",
-    "statikomand>=0.1.1",
-]
 authors = [
     { name = "Marius Garénaux Gruau", email = "marius.garenaux-gruau@irisa.fr" },
 ]
@@ -31,6 +31,9 @@ Repository = "https://github.com/mariusgarenaux/pydantic-ai-kernel"
 [tool.hatch.version]
 path = "pydantic_ai_kernel/__init__.py"
 
+
+[tool.hatch.metadata]
+allow-direct-references = true
 # Used to call hatch_build.py
 [tool.hatch.build.hooks.custom]
 

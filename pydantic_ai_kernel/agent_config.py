@@ -367,7 +367,7 @@ class AgentConfig(BaseModel):
     @classmethod
     def validate_formatter(cls, value):
         # env variable overrides config value; fallback to default if not set
-        env = os.getenv("PYDANTIC_AI_KERNEL_FORMATTER")
+        env = os.getenv("PYDANTIC_AI_KERNEL_FORMATTER", False)
         if env:
             return env
         return value
