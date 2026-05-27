@@ -18,7 +18,6 @@ import yaml
 from pydantic_ai import (
     Agent,
     AbstractToolset,
-    PrefixedToolset,
     ModelRequest,
     ModelMessage,
     TextPart,
@@ -33,9 +32,7 @@ from pydantic_ai import (
     ToolsetFunc,
     Tool,
     DeferredToolRequests,
-    UserPromptNode,
     ModelRequestNode,
-    CallToolsNode,
     ToolDenied,
     DeferredToolResults,
     AgentStreamEvent,
@@ -43,6 +40,13 @@ from pydantic_ai import (
     ToolReturnPart,
 )
 from datetime import datetime
+
+
+# Custom exception used to abort the agent's streaming loop when the kernel receives an interrupt.
+class UserInterruptionError(Exception):
+    """Raised internally to stop the async streaming of agent events."""
+
+    pass
 
 
 def add_custom_logger_handler(logger: logging.Logger):
@@ -127,7 +131,8 @@ class PydanticAIBaseKernel(MetaKernel):
             - additional_agent_kwargs (dict[str, Any] | None = None) : any kwargs which
                 will be given to pydantic-ai agent initialization.
         """
-        self.formatter = os.getenv("PYDANTIC_AI_KERNEL_FORMATTER", "terminal")
+        # Formatter will be taken from the config (AgentConfig.formatter) after loading.
+        self.formatter = None
 
         if authorized_magics_names is None:
             authorized_magics_names = []
@@ -141,6 +146,9 @@ class PydanticAIBaseKernel(MetaKernel):
             "FileMagic",
             "MCPMagic",
             "FastMCPMagic",
+            "UsageMagic",
+            "ThinkMagic",
+            "FormatterMagic",
         ]
         self.authorized_magics_names = authorized_magics_names
         self.additional_agent_kwargs = (
@@ -296,23 +304,22 @@ class PydanticAIBaseKernel(MetaKernel):
             self.log.info(f"Event stream got event : {event}")
             await self.handle_event(event)
 
-    def deal_with_user_prompt_node(self, user_prompt_node: UserPromptNode):
-        # self.Print(user_prompt_node)
-        ...
-
     async def deal_with_model_request_node(
         self, model_request_node: ModelRequestNode, ctx
     ):
-        # thinking_loop = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
-        # thinking_loop_k = 0
+        if self.agent_config is None:
+            self.log.warning("No config was found for agent during its request")
+            return
         async with model_request_node.stream(ctx) as request_stream:
             out_md = ""
             async for event in request_stream:
-                # thinking_loop_k += 1
-                # self.Print(f"Event: {event}")
+                if self.is_interrupted:
+                    raise UserInterruptionError("Interrupt received while streaming")
                 if isinstance(event, PartStartEvent):
-                    if isinstance(event.part, ThinkingPart):
-
+                    if (
+                        isinstance(event.part, ThinkingPart)
+                        and self.agent_config.display_thinking
+                    ):
                         self.Print("========= Thinking =========")
                         self.Print(event.part.content, end="")
 
@@ -326,7 +333,9 @@ class PydanticAIBaseKernel(MetaKernel):
                     if (
                         isinstance(event.delta, ThinkingPartDelta)
                         and event.delta.content_delta is not None
+                        and self.agent_config.display_thinking
                     ):
+
                         self.Print(
                             event.delta.content_delta,
                             end="",
@@ -337,9 +346,16 @@ class PydanticAIBaseKernel(MetaKernel):
                         self.Print(event.delta.content_delta, end="")
                         out_md += event.delta.content_delta
                 if isinstance(event, PartEndEvent):
-                    if isinstance(event.part, ThinkingPart):
+                    if (
+                        isinstance(event.part, ThinkingPart)
+                        and self.agent_config.display_thinking
+                    ):
                         self.Print("\n========= End Think =========")
                         out_md += "  \n  \n"
+                    elif isinstance(event.part, TextPart):
+                        self.Print(event.part.content, end="")
+                        out_md += event.part.content
+
             # this line could break things, because we bet
             # here that frontends that can't display markdown
             # are also those that can't clear output
@@ -353,26 +369,6 @@ class PydanticAIBaseKernel(MetaKernel):
                 {"text/markdown": out_md},
                 clear_output=True,
             )
-
-    async def deal_with_call_tools_node(self, call_tools_node: CallToolsNode, ctx):
-        # self.Print(call_tool_node)
-        # self.Print(f"Toooooool call : {call_tools_node}")
-        # async with call_tools_node.stream(ctx) as handle_stream:
-        #     async for event in handle_stream:
-        #         if isinstance(event, FunctionToolCallEvent):
-        #             self.Print(
-        #                 f"[Tools] The LLM calls tool={event.part.tool_name!r} with args={event.part.args} (tool_call_id={event.part.tool_call_id!r})"
-        #             )
-        #         elif isinstance(event, FunctionToolResultEvent):
-        #             self.Print(
-        #                 f"[Tools] Tool call {event.tool_call_id!r} returned => {event.content}"
-        #             )
-        ...
-
-    # def deal_with_end_node(self, end_node):
-    #     return end_node.data.output
-    #     self.Print(end_node)
-    # ...
 
     async def run_agent(
         self,
@@ -408,17 +404,26 @@ class PydanticAIBaseKernel(MetaKernel):
             message_history=self.agent_history,
             deferred_tool_results=deferred_tool_results,
         ) as agent_run:
+            if self.is_interrupted:
+                raise UserInterruptionError("User stopped the execution")
             async for node in agent_run:
+                # The inner stream already aborts via UserInterruptionError,
+                # but we keep the old guard as a fallback.
+                if self.is_interrupted:
+                    raise UserInterruptionError("User stopped the execution")
+
                 # self.Print(f"node : {node}")
                 if Agent.is_user_prompt_node(node):
-                    self.deal_with_user_prompt_node(node)
+                    continue
                 elif Agent.is_model_request_node(node):
                     await self.deal_with_model_request_node(node, agent_run.ctx)
                 elif Agent.is_call_tools_node(node):
-                    await self.deal_with_call_tools_node(node, agent_run.ctx)
+                    continue  # can be implemented
                 elif Agent.is_end_node(node):
                     tool_req = node.data.output  # either str or DeferredToolRequest
             self.agent_history = agent_run.all_messages()
+
+        self.last_usage = agent_run.usage
 
         return tool_req
 
@@ -448,7 +453,12 @@ class PydanticAIBaseKernel(MetaKernel):
         try:
             if self.config_has_changed:
                 self.agent_config = self.load_config()
-                self.agent = self.create_agent()
+            self.agent = self.create_agent()
+            # Apply formatter from config (fallback to existing value or default)
+            if getattr(self.agent_config, "formatter", None) is not None:
+                self.formatter = self.agent_config.formatter
+            else:
+                self.formatter = "text"
                 self.config_has_changed = False
 
             if self.agent is None:
@@ -469,16 +479,23 @@ class PydanticAIBaseKernel(MetaKernel):
 
                 self.log.info(f"Agent out : {agent_out}")
                 # self.log.info(f"Agent history : {self.agent.history_processors}")
+                # If an interrupt was received while the agent was running, stop the loop immediately.
+                if self.is_interrupted:
+                    self.log.info("Execution halted by user interrupt")
+                    break
 
                 if isinstance(agent_out, DeferredToolRequests):
                     results = DeferredToolResults()
                     for call in agent_out.approvals:
                         self.log.info(f"Call : {call}")
-                        user_approved = self.ask_user_approval(
-                            prompt_user_approval(call)
+
+                        user_validation = self.raw_input(
+                            f"{prompt_user_approval(call)} ([y]/n):"
                         )
-                        if not user_approved:
-                            result = ToolDenied()
+                        if user_validation not in ["Y", "yes", 1, "1", "y"]:
+                            result = ToolDenied(
+                                f"User rejected the tool call : {user_validation}"
+                            )
                         else:
                             result = True
                         results.approvals[call.tool_call_id] = result
@@ -506,7 +523,8 @@ class PydanticAIBaseKernel(MetaKernel):
                         # TODO : force for deferred tool in this case also (else some tool
                         # calls are skipped)
                     break
-
+        except UserInterruptionError:
+            self.log.info("User interrupted the loop")
         except Exception:
             self.Error_display(traceback.format_exc())
 
@@ -549,7 +567,3 @@ class PydanticAIBaseKernel(MetaKernel):
     def get_completions(self, info: dict[str, Any]) -> list[str]:
         self.log.info(f"Completion info : {info}")
         return super().get_completions(info)
-
-
-class UserInterruptionError(Exception):
-    pass

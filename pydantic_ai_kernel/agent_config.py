@@ -280,6 +280,19 @@ class AgentConfig(BaseModel):
             ],
         ),
     ] = None
+    display_thinking: Annotated[
+        bool,
+        Field(
+            description="Whether or not to display thinking text of the model. Default to true."
+        ),
+    ] = True
+    formatter: Annotated[
+        str,
+        Field(
+            description="Output formatter for magics (text, terminal, md, json).",
+            examples=["text", "terminal", "md", "json"],
+        ),
+    ] = "terminal"
 
     @field_validator("system_prompt", mode="after")
     @classmethod
@@ -341,6 +354,23 @@ class AgentConfig(BaseModel):
         Path(temp_path).unlink()
 
         return out_toolsets
+
+    @field_validator("display_thinking", mode="after")
+    @classmethod
+    def validate_display_thinking(cls, value):
+        # env variable overrides config value
+        if os.getenv("PYDANTIC_AI_KERNEL_DISPLAY_THINKING", False):
+            return True
+        return value
+
+    @field_validator("formatter", mode="after")
+    @classmethod
+    def validate_formatter(cls, value):
+        # env variable overrides config value; fallback to default if not set
+        env = os.getenv("PYDANTIC_AI_KERNEL_FORMATTER")
+        if env:
+            return env
+        return value
 
 
 if __name__ == "__main__":

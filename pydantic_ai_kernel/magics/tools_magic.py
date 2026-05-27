@@ -9,7 +9,6 @@ from pydantic_ai_kernel.utils import put_text_in_box
 from pydantic_ai import Tool, FunctionToolset, ApprovalRequiredToolset
 from pydantic_ai.toolsets.fastmcp import FastMCPToolset
 
-
 out_formatter_list = ["text", "terminal", "md"]
 
 
@@ -38,7 +37,8 @@ class ToolMagic(BoostedMagic):
             • %tools -v : list tools, with verbose output
             • %tools --f=markdown : list of tools, mardown formatted
         """
-        env_formatter = os.getenv("PYDANTIC_AI_KERNEL_FORMATTER", "text")
+        # Use kernel's configured formatter if not overridden
+        env_formatter = getattr(self.kernel, "formatter", "text")
         if formatter is None:
             formatter = env_formatter
         self.kernel: PydanticAIBaseKernel  # type hints

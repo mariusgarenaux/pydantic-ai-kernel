@@ -45,7 +45,8 @@ class AgentHistoryMagic(BoostedMagic):
             • `%agent_history --formatter md` : markdown display of agent history
 
         """
-        env_formatter = os.getenv("PYDANTIC_AI_KERNEL_FORMATTER", "text")
+        # Use kernel's configured formatter if not overridden
+        env_formatter = getattr(self.kernel, "formatter", "text")
         if formatter is None:
             formatter = env_formatter
         self.kernel: PydanticAIBaseKernel
