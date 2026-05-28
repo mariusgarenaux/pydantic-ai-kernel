@@ -5,7 +5,7 @@ This is wrapper around pydantic-ai agent, that allows to request it through [jup
 We support :
 
 - streaming output,
-- multi-type output (markdown, raw text), and soon : images, audio, jupyter widgets
+- multi-type output (markdown, raw text), and soon : images, audio, **jupyter widgets**
 - API's for accessing the agent :
   - classical ZeroMQ jupyter kernel API
   - web socket API, with jupyter kernel gateway
@@ -53,8 +53,18 @@ to create the config file, and start chat. See documentation for more informatio
 
 ## Troubleshooting
 
-TAB completion for magic can be broken with older metakernel versions (before 1.0.4). To fix it, install the earlier version :
+TAB completion for magic can be broken with older metakernel versions (before 1.0.4). To fix it, install the 1.0.4 manually :
 
 ```bash
 uv add "metakernel @ git+https://github.com/Calysto/metakernel.git@afd3ddd"
+```
+
+or without `uv`:
+
+```bash
+git clone https://github.com/Calysto/metakernel
+cd metakernel
+git checkout afd3ddd
+pip install -e .
+cd ..
 ```

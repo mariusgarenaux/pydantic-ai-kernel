@@ -4,6 +4,7 @@ nav:
   - 'Home' : 'index.md'
   - 'Config': 'agent_config.md'
   - 'Creating your agent-kernel': 'subclass.md'
+  - 'Frontends': 'frontends.md'
   - 'API':
     - 'Kernel': 'api/kernel.md'
     - '%agent_history': 'api/magics/agent_history_magic.md'

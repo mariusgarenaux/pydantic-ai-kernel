@@ -6,7 +6,7 @@ Instead of building a custom CLI for a chatbot, this library leverages the Jupyt
 
 This architecture allows for the spawning of multiple kernel instances via the [Jupyter kernel gateway](https://jupyter-kernel-gateway.readthedocs.io/en/latest/), enabling access to agents over web sockets.
 
-![Capture](https://github.com/mariusgarenaux/pydantic-ai-kernel/blob/main/capture.png?raw=True)
+![Capture](https://github.com/mariusgarenaux/pydantic-ai-kernel/blob/main/euporie.png?raw=True)
 
 ## Key Features
 
@@ -45,6 +45,8 @@ You can interact with the kernel through various Jupyter frontends:
 
 > **Jupyter Lite** is not supported since the kernel is based on IPykernel, which is not accessible in [Pyodide](https://jupyterlite.readthedocs.io/en/stable/howto/configure/kernels.html).
 
+See [Frontends](./frontends.md) for installation details and examples.
+
 ### Quick Start
 
 Once the kernel is running, use the `%config` magic to set up your agent:
@@ -55,15 +57,4 @@ Once the kernel is running, use the `%config` magic to set up your agent:
 
 Refer to `%help <magic_name>` or `%magic` for detailed documentation on available commands.
 
-## Integration & Customization
-
-### Jupyter Lab
-
-The kernel integrates natively with Jupyter Lab. Pydantic AI agents stream output as `text/plain` and replace it with `text/markdown` upon completion.
-
-![Jupyter Lab Home](https://github.com/mariusgarenaux/pydantic-ai-kernel/blob/main/jupyter_lab_home.png?raw=True)
-![Jupyter Lab Chat](https://github.com/mariusgarenaux/pydantic-ai-kernel/blob/main/jupyter_lab_chat.png?raw=True)
-
-### Creating Custom Agents
-
-You can create specialized agents by subclassing `PydanticAIBaseKernel`. This allows you to define custom tools and behavior while leveraging the existing communication protocol.
+You can also set up a configuration file manually : [Configuration](./agent_config.md)

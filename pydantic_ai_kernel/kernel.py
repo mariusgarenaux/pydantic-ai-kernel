@@ -138,7 +138,7 @@ class PydanticAIBaseKernel(MetaKernel):
             "HelpMagic",
             "MagicMagic",
             "AgentHistoryMagic",
-            "ToolMagic",
+            "ToolsMagic",
             "ForgetMagic",
             "ConfigMagic",
             "FileMagic",

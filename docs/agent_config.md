@@ -1,6 +1,8 @@
 # Agent Configuration
 
-This document describes how to configure agents for the AI kernel. Configuration is handled via `AgentConfig` Pydantic models, typically stored in JSON files. The scheme is available here : [json-scheme](https://github.com/mariusgarenaux/pydantic-ai-kernel/blob/main/pydantic_ai_kernel/config_scheme.json)
+The configuration file is a yaml, following the scheme available here : [json-scheme](https://github.com/mariusgarenaux/pydantic-ai-kernel/blob/main/pydantic_ai_kernel/config_scheme.json).
+You can look at the [pydantic object AgentConfig](https://github.com/mariusgarenaux/pydantic-ai-kernel/blob/main/pydantic_ai_kernel/agent_config.py), which is more readable.
+Most of the field are directly passed to Pydantic AI Agent. If you have any doubt, go to the [official documentation](https://pydantic.dev/docs/ai/models/overview/).
 
 ## Configuration Protocol
 
@@ -18,7 +20,7 @@ The following fields are **mandatory**:
 
 ### 2. Model Configuration (`model`)
 
-The `model` field requires a `ModelConfig` object:
+The `model` field requires a `ModelConfig` object. Which follows pydantic-ai implementaion (see the [official documentation](https://pydantic.dev/docs/ai/models/overview/)).
 
 - **`model_name`** (`string`): **Required**.
   - Format A: `<provider>:<model_name>` (e.g., `"ollama:qwen3:1.7b"`).
