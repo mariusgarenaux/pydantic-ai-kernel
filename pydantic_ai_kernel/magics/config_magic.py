@@ -97,14 +97,14 @@ class ConfigMagic(BoostedMagic):
         Examples :
         -------
             • %config : try to load ~/.jupyter/jupyter_<app_name>_config.yaml
-                and propose to create or edit it if it does not work
+                    and propose to create or edit it if it does not work
             • %config --path /my/config.yaml : load config located at
-                /my/config.yaml
+                    /my/config.yaml
             • %config --path /my/config.yaml --edit : edit or
-                create config located at /my/config.yaml
+                    create config located at /my/config.yaml
             • %config --reset : same as %config, but reset the agent
-                history when the config is reloaded. Else, it is
-                kept among configuration files.
+                    history when the config is reloaded. Else, it is
+                    kept among configuration files.
         """
         self.kernel: PydanticAIBaseKernel  # type hints
         self.evaluate = False

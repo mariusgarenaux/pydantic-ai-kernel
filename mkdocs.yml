@@ -1,0 +1,43 @@
+site_name: Pydantic AI Kernel
+
+nav:
+  - 'Home' : 'index.md'
+  - 'Config': 'agent_config.md'
+  - 'Creating your agent-kernel': 'subclass.md'
+  - 'API':
+    - 'Kernel': 'api/kernel.md'
+    - '%agent_history': 'api/magics/agent_history_magic.md'
+    - '%config': 'api/magics/config_magic.md'
+    - '%fast_mcp': 'api/magics/fast_mcp_magic.md'
+    - '%forget': 'api/magics/forget_magic.md'
+    - '%formatter': 'api/magics/formatter_magic.md'
+    - '%mcp': 'api/magics/mcp_magic.md'
+    - '%think': 'api/magics/think_magic.md'
+    - '%tools': 'api/magics/tools_magic.md'
+    - '%usage': 'api/magics/usage_magic.md'
+  - 'Development': 'dev.md'
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/link
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      accent: indigo
+      toggle:
+        icon: material/toggle-switch-off
+        name: Switch to system preference
+  # user_color_mode_toggle: false
+repo_url: https://github.com/mariusgarenaux/pydantic-ai-kernel
+plugins:
+  - mkdocstrings

@@ -12,7 +12,7 @@ from pydantic_ai.toolsets.fastmcp import FastMCPToolset
 out_formatter_list = ["text", "terminal", "md"]
 
 
-class ToolMagic(BoostedMagic):
+class ToolsMagic(BoostedMagic):
     @boosted_option(
         "-v",
         "--verbose",
@@ -132,4 +132,4 @@ def nice_tool_displaying(tool: Tool, formatter="text"):
 
 
 def register_magics(kernel) -> None:
-    kernel.register_magics(ToolMagic)
+    kernel.register_magics(ToolsMagic)
