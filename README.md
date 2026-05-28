@@ -13,6 +13,8 @@ We support :
 - any pydantic-ai agent can be wrapped in this kernel
 - basic configuration through metakernel magics (agent history, tool list, mcp server, output formatter, ...)
 
+> Documentation : [https://mariusgarenaux.github.io/pydantic-ai-kernel](https://mariusgarenaux.github.io/pydantic-ai-kernel)
+
 ## Getting started
 
 Within a python venv,
