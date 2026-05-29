@@ -1,16 +1,8 @@
-from pydantic_ai import (
-    UserError,
-    AbstractToolset,
-    PrefixedToolset,
-    ApprovalRequiredToolset,
-)
-from pydantic_ai.mcp import load_mcp_toolsets
+from pydantic_ai import UserError
 from pydantic_ai.models import infer_model, Model
 from pydantic_ai.providers import infer_provider_class, Provider
-from typing import Annotated, Any, Literal, Optional, Dict, Self
-from pydantic import BaseModel, Field, field_validator, model_validator, ValidationError
-from tempfile import NamedTemporaryFile
-from pathlib import Path
+from typing import Annotated, Any, Literal, Optional, Dict
+from pydantic import BaseModel, Field, field_validator
 import json
 import os
 
@@ -293,6 +285,12 @@ class AgentConfig(BaseModel):
             examples=["text", "terminal", "md", "json"],
         ),
     ] = "terminal"
+    use_widget: Annotated[
+        bool,
+        Field(
+            description="Whether to use ipywidget in frontend for enhanced displaying"
+        ),
+    ] = False
 
     @field_validator("system_prompt", mode="after")
     @classmethod
@@ -306,54 +304,6 @@ class AgentConfig(BaseModel):
                 o = f.read()
             return o
         return value
-
-    def create_toolsets(self) -> list[AbstractToolset]:
-        """
-        Uses config file to create abstract toolsets
-        """
-        if self.mcp_servers is None:
-            return []
-        with NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump({"mcpServers": self.mcp_servers}, f)
-            temp_path = f.name
-        toolsets = load_mcp_toolsets(temp_path)
-
-        if self.mcp_servers_user_approval is None:
-            mcp_servers_user_approval = {
-                each_mcp: True for each_mcp in self.mcp_servers
-            }
-        else:
-            mcp_servers_user_approval = self.mcp_servers_user_approval
-
-        out_toolsets = []
-        for each_mcp in toolsets:
-            if not isinstance(each_mcp, PrefixedToolset):
-                continue
-            if (
-                each_mcp.wrapped.id not in mcp_servers_user_approval
-                or each_mcp.wrapped.id is None
-            ):
-                continue
-
-            user_approval = mcp_servers_user_approval[each_mcp.wrapped.id]
-            if isinstance(user_approval, bool):
-                if user_approval:
-                    checked_toolset = ApprovalRequiredToolset(each_mcp)
-                else:
-                    checked_toolset = each_mcp
-            elif isinstance(user_approval, dict):
-                checked_toolset = each_mcp.approval_required(
-                    lambda ctx, tool_def, tool_args: user_approval.get(
-                        tool_def.name, True
-                    )
-                )
-            else:
-                continue
-            out_toolsets.append(checked_toolset)
-
-        Path(temp_path).unlink()
-
-        return out_toolsets
 
     @field_validator("display_thinking", mode="after")
     @classmethod

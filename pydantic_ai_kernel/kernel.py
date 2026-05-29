@@ -3,7 +3,9 @@ from .agent_config import AgentConfig
 from .utils import prompt_user_approval, LoadConfigError
 
 # Base python dependencies
+from tempfile import NamedTemporaryFile
 import importlib
+import json
 import glob
 import sys
 import os
@@ -12,23 +14,26 @@ from pathlib import Path
 from typing import Type, Any, Optional, AsyncIterable, Sequence
 
 # External python dependencies
+import ipywidgets as widgets
 from metakernel import MetaKernel, Magic
 import logging
 import yaml
+from pydantic import BaseModel, field_serializer, ConfigDict
 from pydantic_ai import (
+    BinaryImage,
     Agent,
     AbstractToolset,
     ModelRequest,
-    ModelMessage,
+    ApprovalRequiredToolset,
     TextPart,
     TextPartDelta,
-    SystemPromptPart,
     FunctionToolset,
     ThinkingPart,
     ThinkingPartDelta,
     PartStartEvent,
     PartDeltaEvent,
     PartEndEvent,
+    PrefixedToolset,
     ToolsetFunc,
     Tool,
     DeferredToolRequests,
@@ -39,6 +44,8 @@ from pydantic_ai import (
     RunContext,
     ToolReturnPart,
 )
+from pydantic_ai.mcp import load_mcp_toolsets
+
 from datetime import datetime
 
 
@@ -47,6 +54,20 @@ class UserInterruptionError(Exception):
     """Raised internally to stop the async streaming of agent events."""
 
     pass
+
+
+class SerializableWidget(BaseModel):
+    """
+    An Ipywidget, but serializable so that it can be
+    produced by tools and agent output.
+    """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    widget: widgets.Widget
+
+    @field_serializer("widget", mode="plain")
+    def ser_widget(self, value: widgets.Widget) -> Any:
+        return value.get_state()
 
 
 def add_custom_logger_handler(logger: logging.Logger):
@@ -162,21 +183,17 @@ class PydanticAIBaseKernel(MetaKernel):
         self.toolsets: list[AbstractToolset | FunctionToolset | ToolsetFunc] = (
             list(toolsets) if toolsets is not None else []
         )
+        self.base_toolsets = (
+            toolsets if toolsets is not None else []
+        )  # initial toolsets, before loading
+        # additional from config file
+
+        self.log.info(
+            f"Initialization: tools : {self.tools}, toolsets : {self.toolsets}"
+        )
+        self._agent = None
         self.output_type = output_type
         self.is_interrupted = False  # boolean that is triggered by an interrupt_message
-        try:
-            if self.agent_config is None:
-                self.agent_config = self.load_config()
-
-            self.agent = self.create_agent()
-            self.message_history: list[ModelMessage] = [
-                ModelRequest(
-                    parts=[SystemPromptPart(content=self.agent_config.system_prompt)]
-                )
-            ]
-        except Exception as e:
-            self.log.warning(f"Could not load default config `{e}`")
-            self.agent = None
         self.agent_history = []
         self.all_messages_ids = []
         self.config_has_changed = False
@@ -185,8 +202,14 @@ class PydanticAIBaseKernel(MetaKernel):
     @property
     def formatter(self):
         if self.agent_config is None:
-            return "text"
+            return self.load_config().formatter
         return self.agent_config.formatter
+
+    @property
+    def use_widget(self):
+        if self.agent_config is None:
+            return self.load_config().use_widget
+        return self.agent_config.use_widget
 
     def reload_magics(self) -> None:
         """
@@ -270,16 +293,16 @@ class PydanticAIBaseKernel(MetaKernel):
         by a sub-class to implement any pydantic-ai agent.
         """
         if self.agent_config is None:
-            raise ValueError("Could not create agent without configuration file.")
+            self.agent_config = self.load_config()
         try:
             model = self.agent_config.model.get_model
         except NotImplementedError as e:
             model = self.agent_config.model.model_name
             self.log.warning(e)
 
-        mcp_toolsets = self.agent_config.create_toolsets()
-        self.log.debug(f"Adding mcp toolsets: {mcp_toolsets}")
-        self.toolsets += mcp_toolsets
+        self.config_toolsets = self.create_toolsets_from_config()
+        self.log.debug(f"Adding toolsets from configuration : {self.config_toolsets}")
+        self.toolsets = self.base_toolsets + self.config_toolsets
 
         agent = Agent(
             model,
@@ -288,11 +311,64 @@ class PydanticAIBaseKernel(MetaKernel):
             tools=self.tools,
             toolsets=self.toolsets,
             name=self.agent_config.agent_name,
-            # end_strategy="exhaustive",
             **self.additional_agent_kwargs,
         )
 
         return agent
+
+    def create_toolsets_from_config(self) -> list[AbstractToolset]:
+        """
+        Uses config file to create abstract toolsets
+        """
+        if self.agent_config is None:
+            self.agent_config = self.load_config()
+
+        if self.agent_config.mcp_servers is None:
+            self.log.info("No MCP servers loaded")
+            return []
+
+        with NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump({"mcpServers": self.agent_config.mcp_servers}, f)
+            temp_path = f.name
+        toolsets = load_mcp_toolsets(temp_path)
+        self.log.info(
+            f"Raw MCP toolsets loaded from config: {toolsets}. Boosting them."
+        )
+        if self.agent_config.mcp_servers_user_approval is None:
+            mcp_servers_user_approval = {
+                each_mcp: True for each_mcp in self.agent_config.mcp_servers
+            }
+        else:
+            mcp_servers_user_approval = self.agent_config.mcp_servers_user_approval
+
+        out_toolsets = []
+        for each_mcp in toolsets:
+            if not isinstance(each_mcp, PrefixedToolset):
+                continue
+            if (
+                each_mcp.wrapped.id not in mcp_servers_user_approval
+                or each_mcp.wrapped.id is None
+            ):
+                continue
+
+            user_approval = mcp_servers_user_approval[each_mcp.wrapped.id]
+            if isinstance(user_approval, bool):
+                if user_approval:
+                    checked_toolset = ApprovalRequiredToolset(each_mcp)
+                else:
+                    checked_toolset = each_mcp
+            elif isinstance(user_approval, dict):
+                approv = user_approval
+                checked_toolset = each_mcp.approval_required(
+                    lambda ctx, tool_def, tool_args: approv.get(tool_def.name, True)
+                )
+            else:
+                continue
+            out_toolsets.append(checked_toolset)
+
+        Path(temp_path).unlink()
+
+        return out_toolsets
 
     async def handle_event(self, event: AgentStreamEvent):
         if isinstance(event, DeferredToolRequests):
@@ -314,8 +390,19 @@ class PydanticAIBaseKernel(MetaKernel):
         if self.agent_config is None:
             self.log.warning("No config was found for agent during its request")
             return
+        self.log.info(model_request_node.request)
+        self.log.info(model_request_node._result)
+
+        # all_parts = model_request_node.request.parts
+        # for part in
+        # if isinstance(.parts[0], ToolReturnPart):
+        #     if isinstance(model_request_node.request.parts[0].content, Widget):
+        #         self.Display(model_request_node.request.parts[0].content)
+        #         model_request_node.request.parts[0].content = "Widget"
+        #         return
+        out_md = ""
+        think_content = ""
         async with model_request_node.stream(ctx) as request_stream:
-            out_md = ""
             async for event in request_stream:
                 if self.is_interrupted:
                     raise UserInterruptionError("Interrupt received while streaming")
@@ -327,8 +414,11 @@ class PydanticAIBaseKernel(MetaKernel):
                         self.Print("========= Thinking =========")
                         self.Print(event.part.content, end="")
 
-                        out_md += "> **Thinking** :  \n"
-                        out_md += f"> {event.part.content}"
+                        if self.use_widget:
+                            think_content += event.part.content
+                        else:
+                            out_md += "> **Thinking** :  \n"
+                            out_md += f"> {event.part.content}"
 
                     if isinstance(event.part, TextPart):
                         self.Print(event.part.content, end="")
@@ -339,12 +429,14 @@ class PydanticAIBaseKernel(MetaKernel):
                         and event.delta.content_delta is not None
                         and self.agent_config.display_thinking
                     ):
-
                         self.Print(
                             event.delta.content_delta,
                             end="",
                         )
-                        out_md += event.delta.content_delta.replace("\n", "  \n> ")
+                        if self.use_widget:
+                            think_content += event.delta.content_delta
+                        else:
+                            out_md += event.delta.content_delta.replace("\n", "  \n> ")
 
                     if isinstance(event.delta, TextPartDelta):
                         self.Print(event.delta.content_delta, end="")
@@ -357,26 +449,48 @@ class PydanticAIBaseKernel(MetaKernel):
                         self.Print("\n========= End Think =========")
                         out_md += "  \n  \n"
 
-            if self.formatter == "md":
-                # this line could break things, because we bet
-                # here that frontends that can't display markdown
-                # are also those that can't clear output
-                # (for ex. jupyter console).
-                # since there is no way to know if a frontend
-                # really clears output on clear_output msg, this
-                # remains the best option
-                # we could also have an environment variable to set
-                # if the current frontend implements clear_output
-                self.Display(
-                    {"text/markdown": out_md},
-                    clear_output=True,
+        if len(think_content) > 0 and self.use_widget:
+            self.out_md_stack.append(
+                widgets.Accordion(
+                    children=[
+                        widgets.HTML(
+                            value=think_content,
+                            placeholder="",
+                            description="",
+                        )
+                    ],
+                    titles=["Though"],
                 )
+            )
+        if len(out_md) > 0:
+            # avoid display empty blocks
+            self.out_md_stack.append({"text/markdown": out_md})
+        if self.formatter == "md":
+            # this line could break things, because we bet
+            # here that frontends that can't display markdown
+            # are also those that can't clear output
+            # (for ex. jupyter console).
+            # since there is no way to know if a frontend
+            # really clears output on clear_output msg, this
+            # remains the best option
+            # we could also have an environment variable to set
+            # if the current frontend implements clear_output
+            self.Display(
+                *self.out_md_stack,
+                clear_output=True,
+            )
+
+    @property
+    def agent(self) -> Agent:
+        if self._agent is None:
+            self._agent = self.create_agent()
+        return self._agent
 
     async def run_agent(
         self,
         prompt: Optional[str],
         deferred_tool_results: Optional[DeferredToolResults] = None,
-    ) -> Optional[DeferredToolRequests]:
+    ) -> DeferredToolRequests | Any:
         """
         Runs the agent. Streams the output to stdout. Returns a DeferredToolRequest
         to ask for user approval if some tool needs it.
@@ -394,13 +508,11 @@ class PydanticAIBaseKernel(MetaKernel):
         Returns :
         ---
             None if all text output was streamed to stdout. A DeferredToolRequests
-            object if the user needs to validate some tool calling.
+            object if the user needs to validate some tool calling. Can be the
+            Agent output type.
         """
-        if self.agent is None:
-            raise Exception(
-                r"Load config file before using the agent. Send `%config`. See https://github.com/mariusgarenaux/pydantic-ai-kernel to get config scheme."
-            )
-        tool_req = None
+        agent_output = None
+
         async with self.agent.iter(
             user_prompt=prompt,
             message_history=self.agent_history,
@@ -420,14 +532,16 @@ class PydanticAIBaseKernel(MetaKernel):
                 elif Agent.is_model_request_node(node):
                     await self.deal_with_model_request_node(node, agent_run.ctx)
                 elif Agent.is_call_tools_node(node):
-                    continue  # can be implemented
+                    self.log.debug(f"Calling tool node : {node}")
                 elif Agent.is_end_node(node):
-                    tool_req = node.data.output  # either str or DeferredToolRequest
+                    # either agent output or DeferredToolRequest
+                    agent_output = node.data.output
+
             self.agent_history = agent_run.all_messages()
 
         self.last_usage = agent_run.usage
 
-        return tool_req
+        return agent_output
 
     def ask_user_approval(self, prompt: Optional[str] = None) -> bool:
         """
@@ -454,16 +568,13 @@ class PydanticAIBaseKernel(MetaKernel):
         """
         try:
             if self.config_has_changed:
+                # we reload the agent and the config
                 self.agent_config = self.load_config()
-            self.agent = self.create_agent()
-            # Apply formatter from config (fallback to existing value or default)
+                self._agent = self.create_agent()
 
-            if self.agent is None:
-                raise Exception(
-                    r"Load config file before using the agent. Send `%config`. See https://github.com/mariusgarenaux/pydantic-ai-kernel to get config scheme."
-                )
             self.is_interrupted = False
             deferred_tool_result = None
+            self.out_md_stack = []
             while True:
                 # runs the agent until it returns anything other than a deferred
                 # tool request.
@@ -474,7 +585,7 @@ class PydanticAIBaseKernel(MetaKernel):
                     prompt, deferred_tool_results=deferred_tool_result
                 )
 
-                self.log.info(f"Agent out : {agent_out}")
+                # self.log.info(f"Agent out : {agent_out}")
                 # self.log.info(f"Agent history : {self.agent.history_processors}")
                 # If an interrupt was received while the agent was running, stop the loop immediately.
                 if self.is_interrupted:
@@ -499,6 +610,12 @@ class PydanticAIBaseKernel(MetaKernel):
                     deferred_tool_result = results
                 elif isinstance(agent_out, str):
                     break
+                elif isinstance(agent_out, BinaryImage):
+                    self.Display({"image/png": agent_out.data})
+                    break
+                elif isinstance(agent_out, SerializableWidget):
+                    self.Display(agent_out.widget)
+                    break
                 else:  # here, check for unprocessed tool calls, and remove them
                     last_msg = self.agent_history[-1]
                     # self.log.info(f"Last message : {last_msg}")
@@ -520,6 +637,7 @@ class PydanticAIBaseKernel(MetaKernel):
                         # TODO : force for deferred tool in this case also (else some tool
                         # calls are skipped)
                     break
+
         except UserInterruptionError:
             self.log.info("User interrupted the loop")
         except Exception:

@@ -128,7 +128,10 @@ class ConfigMagic(BoostedMagic):
                 if reset:
                     self.kernel.message_history = []
                 agent = self.kernel.create_agent()
-                self.kernel.agent = agent
+                self.kernel._agent = agent
+                self.kernel.Print(
+                    f"Loaded config : \n{self.kernel.agent_config.model_dump_json(indent=4)}"
+                )
                 return
 
         # 2 - Loading failed, or user wants to edit the config file

@@ -108,7 +108,7 @@ class MCPMagic(BoostedMagic):
             self.kernel.toolsets.append(toolset)
 
         # reset agent
-        self.kernel.agent = self.kernel.create_agent()
+        self.kernel._agent = self.kernel.create_agent()
         self.kernel.Print("Added MCP server as tool of the agent.")
 
 

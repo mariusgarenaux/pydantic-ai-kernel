@@ -4,9 +4,9 @@ from pydantic_ai_kernel import (
     boosted_option,
     complete_from_list,
 )
-import os
+import ipywidgets as widgets
 from pydantic_ai_kernel.utils import put_text_in_box, nice_display_tool_args
-
+from typing import Tuple
 from pydantic_ai.messages import (
     ModelMessage,
     ModelRequestPart,
@@ -53,28 +53,42 @@ class AgentHistoryMagic(BoostedMagic):
         self.evaluate = False
         history: list[ModelMessage] = self.kernel.agent_history
 
-        match formatter:
-            case "json":
-                self.kernel.Print(
-                    ModelMessagesTypeAdapter.dump_json(history, indent=4).decode(
-                        "utf-8"
+        structured_messages = structured_message_display(history)
+
+        if formatter == "json":
+            self.kernel.Print(
+                ModelMessagesTypeAdapter.dump_json(history, indent=4).decode("utf-8")
+            )
+            return
+
+        for title, content in structured_messages:
+            if formatter == "md":
+                if self.kernel.use_widget:
+                    self.kernel.Display(
+                        widgets.Accordion(
+                            children=[
+                                widgets.HTML(
+                                    value=content,
+                                    placeholder="",
+                                    description="",
+                                )
+                            ],
+                            titles=[title],
+                        )
                     )
+                else:
+                    self.kernel.Display({"text/markdown": f"### {title}  \n{content}"})
+            elif formatter == "text":
+                self.kernel.Print(f"  {title} :\n" + put_text_in_box(content, 4))
+            elif formatter == "terminal":
+                self.kernel.Print(
+                    f"  \033[0;32m{title}\033[0m :\n" + put_text_in_box(content, 4)
                 )
-            case "md":
-                out = ""
-                for each_model_message in history:
-                    out += nice_model_message_display(each_model_message, formatter)
-                self.kernel.Display({"text/markdown": out})
-            case "text" | "terminal":
-                out = ""
-                for each_model_message in history:
-                    out += nice_model_message_display(each_model_message, formatter)
-                self.kernel.Print(out)
 
 
-def nice_display_model_message_part(
-    part: ModelRequestPart | ModelResponsePart, indent: int, formatter: str
-) -> str:
+def get_title_content_from_message_part(
+    part: ModelRequestPart | ModelResponsePart,
+) -> Tuple[str, str]:
     """
     Transform the model message part in a string that is more human-readable.
 
@@ -118,45 +132,22 @@ def nice_display_model_message_part(
     elif isinstance(part, FilePart):
         title = "File"
 
-    match formatter:
-        case "text":
-            title = title
-        case "terminal":
-            title = f"\033[0;32m{title}\033[0m"
-        case "md":
-            title = f"### {title}  \n"
-
-    match formatter:
-        case "text" | "terminal":
-            out = " " * 2 + title + " :\n"
-            out += put_text_in_box(content, indent)
-        case "md":
-            out = title
-            out += f"{content}  \n"
-        case _:
-            out = ""
-    return out
+    return title, content
 
 
-def nice_model_message_display(message: ModelMessage, formatter: str) -> str:
+def structured_message_display(history: list[ModelMessage]) -> list[Tuple[str, str]]:
     """
-    Display all the parts of the message, in a box with the part type as a box title.
+    Structure all the messages, ready to be displayed according to formatter
 
     Parameters:
     ---
-        - message (ModelMessage) : a pydantic-ai ModelMessage, containing text / tool call
-            informations
-        - formatter (str) : the formatter, can be md (markdown), text (raw text), terminal (
-            raw text with ANSI colors).
-
-    Returns :
-    ---
-        A string which should be printed, containing the message history.
+        - history (list[ModelMessage]): the list of model message
     """
-    indent = 4
-    out = ""
-    for each_part in message.parts:
-        out += nice_display_model_message_part(each_part, indent, formatter)
+    out = []
+    for each_model_message in history:
+        for each_part in each_model_message.parts:
+            title, content = get_title_content_from_message_part(each_part)
+            out.append((title, content))
     return out
 
 
