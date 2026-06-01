@@ -54,3 +54,4 @@ dev = [
     "pytest>=9.0.2",
     "twine>=6.2.0",
 ]
+ipywidgets = ["ipywidgets>=8.1.8"]
