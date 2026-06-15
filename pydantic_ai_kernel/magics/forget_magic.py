@@ -8,7 +8,7 @@ class ForgetMagic(Magic):
         %forget : empty the agent history.
         """
         self.kernel: PydanticAIBaseKernel
-        self.kernel.agent_history = []
+        self.kernel.agent.agent_history = []
         self.kernel.Print("Removed the agent memory.")
 
 

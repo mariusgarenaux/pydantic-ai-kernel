@@ -26,7 +26,7 @@ class UsageMagic(BoostedMagic):
         if formatter is None:
             formatter = env_formatter
 
-        usage_info = self.kernel.last_usage
+        usage_info = self.kernel.agent.last_usage
         if usage_info is None:
             self.kernel.Error(
                 "No usage information available. Run a cell to generate usage data."
@@ -35,7 +35,11 @@ class UsageMagic(BoostedMagic):
 
         # Nice formatting based on requested type
         # Convert usage info to a dict (handles RunUsage dataclass)
-        info_dict = usage_info if isinstance(usage_info, dict) else dataclasses.asdict(usage_info)
+        info_dict = (
+            usage_info
+            if isinstance(usage_info, dict)
+            else dataclasses.asdict(usage_info)
+        )
         if formatter == "json":
             try:
                 json_str = json.dumps(info_dict, indent=2)

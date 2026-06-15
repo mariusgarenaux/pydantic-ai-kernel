@@ -1,8 +1,28 @@
 # Creating your own agents
 
-In order to create custom agents, you just need to create a new kernel, and subclass PydanticAIBaseKernel from this library. See an example here [example_agent](https://github.com/mariusgarenaux/pydantic-ai-kernel/blob/main/example_agent). You can follow procedure from [metakernel](https://metakernel.readthedocs.io/en/latest/new_kernel/).
+There are two ways of using pydantic-ai kernel package to build your own chatbot, or agent-based application.
 
-You can then create tools, or any mechanism you want. We provide here just the communication protocol between agent and user, through well known and proven jupyter kernels.
+The easiest way (but less powerful), is to subclass [PydanticAIBaseKernel object](#simple-application-single-agent--subclass-pydanticaibasekernel). The more complex one is to build your own metakernel subclass, and to use our [JuPydanticAgent wrapper](#complex-applications--use-jupydanticagent) of Pydantic-AI Agent to interact with one or many agent.s within the kernel.
+
+## Complex applications : use JuPydanticAgent
+
+[JuPydanticAgent](./api/jupydantic_agent.md) is an object which mixes pydantic-ai agent and Jupyter Kernel ([MetaKernel](https://metakernel.readthedocs.io/en/latest) only).
+
+You can hence create [your subclass of MetaKernel](https://metakernel.readthedocs.io/en/latest/new_kernel/), and use methods from JuPydanticAgent to stream its output to the kernel; when needed. This allows for more complex applications, with several agents, or with FSM based applications.
+
+You will have to reimplement :
+
+- agent configuration,
+
+- all the magics of PydanticAIBaseKernel,
+
+- any feature of PydanticAIBaseKernel, since you won't depend on it
+
+## Simple application (single agent) : subclass PydanticAIBaseKernel
+
+For single agent based application, the easiest way to go is subclassing the PydanticAIBaseKernel. See an example here [example_agent](https://github.com/mariusgarenaux/pydantic-ai-kernel/blob/main/example_agent). You can follow procedure from [metakernel](https://metakernel.readthedocs.io/en/latest/new_kernel/).
+
+You can then add tools, MCP, ...
 
 The default configuration file for any subclass of PydanticAIBaseKernel will be fetched from : `~/.jupyter/jupyter_<app_name>_config.yaml`; and must follows the same scheme as the one of [pydantic_ai_kernel](https://github.com/mariusgarenaux/pydantic-ai-kernel/blob/main/pydantic_ai_kernel/config_scheme.json). But it can also be specified by sending a message to the kernel : `%config <path_to_config_file>`
 

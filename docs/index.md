@@ -1,6 +1,6 @@
 # Pydantic AI Kernel
 
-Pydantic AI Kernel is a wrapper around the `pydantic-ai` agent that enables interaction through the [Jupyter kernel messaging protocol](https://jupyter-client.readthedocs.io/en/stable/messaging.html). It provides an easy way to create and share python based agents (with custom tools, ...).
+Pydantic AI Kernel is a wrapper around the `pydantic-ai` agent that enables interaction through the [Jupyter kernel messaging protocol](https://jupyter-client.readthedocs.io/en/stable/messaging.html). It provides an easy way to create and share python based agent applications (with custom tools, ...).
 
 Instead of building a custom CLI for a chatbot, this library leverages the Jupyter ecosystem to provide a free UI and a proven API for agent access. No CLI is implemented here - just the [kernel](https://jupyter-client.readthedocs.io/en/stable/messaging.html).
 

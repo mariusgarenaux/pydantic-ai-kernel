@@ -7,6 +7,7 @@ nav:
   - 'Frontends': 'frontends.md'
   - 'API':
     - 'Kernel': 'api/kernel.md'
+    - 'JuPydanticAgent': 'api/jupydantic_agent.md'
     - '%agent_history': 'api/magics/agent_history_magic.md'
     - '%config': 'api/magics/config_magic.md'
     - '%fast_mcp': 'api/magics/fast_mcp_magic.md'

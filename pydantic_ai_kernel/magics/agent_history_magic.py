@@ -51,7 +51,7 @@ class AgentHistoryMagic(BoostedMagic):
             formatter = env_formatter
         self.kernel: PydanticAIBaseKernel
         self.evaluate = False
-        history: list[ModelMessage] = self.kernel.agent_history
+        history: list[ModelMessage] = self.kernel.agent.agent_history
 
         structured_messages = structured_message_display(history)
 

@@ -2632,6 +2632,7 @@ wheels = [
 name = "pydantic-ai-kernel"
 source = { editable = "." }
 dependencies = [
+    { name = "ipywidgets" },
     { name = "metakernel" },
     { name = "pydantic" },
     { name = "pydantic-ai" },
@@ -2656,6 +2657,7 @@ ipywidgets = [
 
 [package.metadata]
 requires-dist = [
+    { name = "ipywidgets", specifier = ">=8.1.8" },
     { name = "metakernel", specifier = ">=1.0.0" },
     { name = "pydantic", specifier = ">=2.12.3" },
     { name = "pydantic-ai", specifier = ">=1.101.0" },

@@ -44,9 +44,7 @@ class ToolsMagic(BoostedMagic):
         self.kernel: PydanticAIBaseKernel  # type hints
         match formatter:
             case "text" | "terminal":
-                self.text_format
-
-                ter(verbose)
+                self.text_formatter(verbose)
             case "md":
                 if self.kernel.use_widget:
                     self.markdown_formatter_with_widget(verbose)
