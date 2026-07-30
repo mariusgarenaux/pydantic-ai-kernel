@@ -33,7 +33,7 @@ To add the magic to the whitelisted magics of the kernel, append the class name 
 
 ### Add tools
 
-In any agent subclass, you can define tools, and give them to the super class initializer (see [example_agent](./example_agent/)).
+In any agent subclass, you can define tools, and give them to the super class initializer (see [example_agent](https://github.com/mariusgarenaux/pydantic-ai-kernel/blob/main/example_agent)).
 
 If some tools requires user approval before being executed, you just have to specify it with usual pydantic-ai way :
 
