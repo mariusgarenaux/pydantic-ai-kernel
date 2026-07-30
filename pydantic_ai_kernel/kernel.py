@@ -125,7 +125,6 @@ class PydanticAIBaseKernel(MetaKernel):
             "ConfigMagic",
             "FileMagic",
             "MCPMagic",
-            "FastMCPMagic",
             "UsageMagic",
             "ThinkMagic",
             "FormatterMagic",
@@ -173,7 +172,7 @@ class PydanticAIBaseKernel(MetaKernel):
         """
         Override metakernel `reload_magics` to fix the magics not being
         propagated through subclasses. Subclasses of pydantic-ai-kernel
-        could not by default access pydantic-ai-kernel.
+        could not by default access pydantic-ai-kernel magics.
 
         We first reload_magics with the official method, and then we seek
         for a magics dir **within** this file's directory.

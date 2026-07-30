@@ -7,7 +7,7 @@ from pydantic_ai_kernel import (
 import ipywidgets as widgets
 from pydantic_ai_kernel.utils import put_text_in_box
 from pydantic_ai import Tool, FunctionToolset, ApprovalRequiredToolset
-from pydantic_ai.toolsets.fastmcp import FastMCPToolset
+from pydantic_ai.mcp import MCPToolset
 
 out_formatter_list = ["text", "terminal", "md"]
 
@@ -90,7 +90,7 @@ class ToolsMagic(BoostedMagic):
                             content += f"{each_tool}  \n"
                         else:
                             content += nice_tool_displaying(each_tool, formatter="md")
-                elif isinstance(each_toolset, FastMCPToolset):
+                elif isinstance(each_toolset, MCPToolset):
                     content += f"- FastMCP : {each_toolset.client.transport.url}"
                 else:
                     content += f"- {each_toolset}"
@@ -128,8 +128,8 @@ class ToolsMagic(BoostedMagic):
                             out += f"{each_tool}  \n"
                         else:
                             out += nice_tool_displaying(each_tool, formatter="md")
-                elif isinstance(each_toolset, FastMCPToolset):
-                    out += f"- FastMCP : {each_toolset.client.transport.url}"
+                elif isinstance(each_toolset, MCPToolset):
+                    out += f"- MCP : {each_toolset.client.transport.url}"
                 else:
                     out += f"- {each_toolset}"
         self.kernel.Display(
@@ -148,7 +148,6 @@ class ToolsMagic(BoostedMagic):
                 self.kernel.Print(
                     put_text_in_box(nice_tool_displaying(each_tool), indent=2)
                 )
-
         if self.kernel.toolsets is not None:
             for each_toolset in self.kernel.toolsets:
                 self.kernel.Print("Toolset :")
@@ -162,8 +161,8 @@ class ToolsMagic(BoostedMagic):
                             out += f"{each_tool}"
                         else:
                             out += nice_tool_displaying(each_tool)
-                elif isinstance(each_toolset, FastMCPToolset):
-                    out += f"   FastMCP : {each_toolset.client.transport.url}"
+                elif isinstance(each_toolset, MCPToolset):
+                    out += f"   MCP : {each_toolset.client.transport.url}"
                 else:
                     out += f"  {each_toolset}"
                 self.kernel.Print(put_text_in_box(out, indent=2))

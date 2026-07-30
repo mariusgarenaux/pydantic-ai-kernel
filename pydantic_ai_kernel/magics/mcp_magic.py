@@ -1,19 +1,23 @@
 from pydantic_ai_kernel import PydanticAIBaseKernel, BoostedMagic, boosted_option
 from pydantic_ai_kernel.utils import MCPToolsetError
-from pydantic_ai.mcp import MCPServerStreamableHTTP, MCPServerSSE, MCPServerStdio
+from pydantic_ai.mcp import MCPToolset
+from fastmcp.client import Client
+from fastmcp.client.transports import (
+    StreamableHttpTransport,
+    SSETransport,
+    StdioTransport,
+)
 from pydantic_ai import ApprovalRequiredToolset
 
 
-def create_mcp_toolset(
-    transport, **kwargs
-) -> MCPServerSSE | MCPServerStreamableHTTP | MCPServerStdio:
+def create_mcp_toolset(transport, **kwargs) -> MCPToolset:
     match transport:
         case "sse":
             url = kwargs["url"]
-            return MCPServerSSE(url)
+            mcp_transport = SSETransport(url)
         case "streamable-http":
             url = kwargs["url"]
-            return MCPServerStreamableHTTP(url)
+            mcp_transport = StreamableHttpTransport(url)
         case "http":
             raise DeprecationWarning(
                 "Transport mode `http` is deprecated. Use `sse` instead."
@@ -21,11 +25,13 @@ def create_mcp_toolset(
         case "stdio":
             stdio_command = kwargs["stdio_command"]
             stdio_args = kwargs["stdio_args"]
-            return MCPServerStdio(stdio_command, stdio_args)
+            mcp_transport = StdioTransport(stdio_command, stdio_args)
         case _:
             raise ValueError(
                 f"Unexpected value for transport of MCP server : `{transport}`"
             )
+    client = Client(mcp_transport)
+    return MCPToolset(client)
 
 
 class MCPMagic(BoostedMagic):
@@ -95,17 +101,13 @@ class MCPMagic(BoostedMagic):
         self.kernel.log.info(f"Successfully connected to MCP server, {to_display}")
         self.kernel.Print(f"Successfully connected to MCP server, {to_display}")
         self.kernel: PydanticAIBaseKernel
-        if self.kernel.toolsets is None:
-            self.kernel.toolsets = [mcp_toolset]
+
+        if no_approval:
+            toolset = mcp_toolset
         else:
-            if no_approval:
-                toolset = mcp_toolset
-            else:
-                toolset = ApprovalRequiredToolset(
-                    mcp_toolset
-                )  # by default, MCP requires
-            # approval for all calls
-            self.kernel.toolsets.append(toolset)
+            toolset = ApprovalRequiredToolset(mcp_toolset)  # by default, MCP requires
+        # approval for all calls
+        self.kernel.base_toolsets = list(self.kernel.base_toolsets) + [toolset]
 
         # reset agent
         self.kernel._agent = self.kernel.create_agent()
