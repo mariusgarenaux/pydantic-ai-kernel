@@ -1,0 +1,13 @@
+agent_name: Example Agent
+system_prompt: "Hey"
+model: 
+  model_name: gemma-4-31b
+  model_type: openai
+  model_provider:
+    name: openai
+    params:
+      base_url: bill
+      api_key: bob
+display_thinking: True
+formatter: terminal
+use_widget: False

@@ -4,9 +4,57 @@ The configuration file is a yaml, following the scheme available here : [json-sc
 You can look at the [pydantic object AgentConfig](https://github.com/mariusgarenaux/pydantic-ai-kernel/blob/main/pydantic_ai_kernel/agent_config.py), which is more readable.
 Most of the field are directly passed to Pydantic AI Agent. If you have any doubt, go to the [official documentation](https://pydantic.dev/docs/ai/models/overview/).
 
+## Where to put config file
+
+There are several places where you can put the configuration file :
+
+## .jupyter
+
+Follow instruction below, and create a file at : ~/.jupyter/jupyter_<kernel_name>_config.yaml
+The kernel will, on first cell execution, load and validate this configuration file
+
+## Environment variable
+
+Create as specified below a configuration file (either .json or .yaml). Specify the environment variable PYDANTIC_AI_KERNEL_CONFIG pointing to this file in the kernel environment. Since kernel are started as separate processes, the environment variable might not be accessible directly to it. A way to circumvent this is to put it directly in the kernelspec `kernel.json`. For example, create a directory named `example_agent_2`, and within this directory create a `kernel.json` file with the following :
+
+```json
+{
+    "argv": [
+        "python",
+        "-m",
+        "pydantic_ai_kernel",
+        "-f",
+        "{connection_file}"
+    ],
+    "display_name": "Example Agent",
+    "interrupt_mode": "message",
+    "language": "text",
+    "env": {
+        "PYDANTIC_AI_KERNEL_CONFIG": "./example_agent_2/example_agent_2_config.yaml"
+    }
+}
+```
+
+Then, run :
+
+```bash
+jupyter kernelspec install ./example_agent_2 --sys-prefix
+```
+
+> --sys-prefix flag installs the kernel in the .venv. Can be removed to be installed globally, or replaced by --user to by installed on user space
+
+Then, a :
+
+```bash
+jupyter console --kernel example_agent_2
+```
+
+would run a kernel with the configuration file specified in the kernelspec.json. This allows to have multiple pydantic_ai_kernel instances, with different system prompts and/or inference providers.
+
+
 ## Configuration Protocol
 
-To create a configuration file for an agent, you must provide a JSON object that follows the `AgentConfig` schema.
+To create a configuration file for an agent, you must provide a JSON object that follows the `AgentConfig` schema. The object can be formatted in a yaml file, or a json.
 
 ### 1. Required Fields
 

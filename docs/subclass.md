@@ -56,3 +56,7 @@ def __init__(self, **kwargs):
 
 If your agent is already defined in an other python package, you just need to create a kernel, as stated above, and override `create_agent` method to make it return the Agent.
 It will then be accessible from jupyter kernel. The agent must be an instance of Pydantic AI Agent.
+
+## Even simpler application : specify configuration file
+
+If you just want to have a custom system prompt and inference provider, the only thing you have to do is create a kernelspec which specify environment variable PYDANTIC_AI_KERNEL_CONFIG, pointing to your config file. This is detailed in [Agent Configuration](./agent_config.md)

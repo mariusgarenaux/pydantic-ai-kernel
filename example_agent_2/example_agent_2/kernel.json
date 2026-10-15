@@ -1,0 +1,15 @@
+{
+    "argv": [
+        "python",
+        "-m",
+        "pydantic_ai_kernel",
+        "-f",
+        "{connection_file}"
+    ],
+    "display_name": "Example Agent",
+    "interrupt_mode": "message",
+    "language": "text",
+    "env": {
+        "PYDANTIC_AI_KERNEL_CONFIG": "./example_agent_2/example_agent_2_config.yaml"
+    }
+}

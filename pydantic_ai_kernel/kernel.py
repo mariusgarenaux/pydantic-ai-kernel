@@ -212,6 +212,10 @@ class PydanticAIBaseKernel(MetaKernel):
             super().register_magics(magic_klass)
 
     def get_config_dir(self) -> str:
+        env_config_file = os.getenv("PYDANTIC_AI_KERNEL_CONFIG", None)
+        if env_config_file is not None and os.path.isfile(env_config_file):
+            return env_config_file
+
         home_directory = os.path.expanduser("~")
         config_name = f"jupyter_{self.app_name}_config.yaml"
         return os.path.join(home_directory, f".jupyter/{config_name}")
@@ -234,6 +238,10 @@ class PydanticAIBaseKernel(MetaKernel):
             dir = self.get_config_dir()
         else:
             dir = path
+        if not os.path.isfile(dir):
+            raise LoadConfigError(
+                f"No file located at : {dir}. Create one or specify config file path with PYDANTIC_AI_KERNEL_CONFIG environment variable."
+            )
         try:
             with open(dir, "rt") as f:
                 conf = yaml.safe_load(f)

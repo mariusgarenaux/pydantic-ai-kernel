@@ -31,7 +31,9 @@ pip install pydantic-ai-kernel
 
 ### Usage
 
-You can interact with the kernel through various Jupyter frontends:
+Either wrap your favorite pydantic-ai agent in a kernel, by subclassing the main [PydanticAIBaseKernel class](./subclass.md). Or just create a configuration file with custom system prompt and inference provider, and create a kernelspec file, as described [here](./agent_config.md).
+
+Once done, you can interact with the kernel through various Jupyter frontends:
 
 - **CLI**: Install `jupyter-console` and run:
   ```bash
@@ -46,6 +48,10 @@ You can interact with the kernel through various Jupyter frontends:
 > **Jupyter Lite** is not supported since the kernel is based on IPykernel, which is not accessible in [Pyodide](https://jupyterlite.readthedocs.io/en/stable/howto/configure/kernels.html).
 
 See [Frontends](./frontends.md) for installation details and examples.
+
+Once kernel is built, you can also access it _via_ API with [jupyter kernel gateway](https://jupyter-kernel-gateway.readthedocs.io/en/latest/), [jupyter enterprise gateway](https://jupyter-enterprise-gateway.readthedocs.io/en/latest/index.html), [jupyter server][https://jupyter-server.readthedocs.io/en/latest/index.html]. This allows to share the agent with other.
+
+The kernel can also be packaged in a python library, and shared _via_ pypi, as it is for this `pydantic_ai_kernel`.
 
 ### Quick Start
 

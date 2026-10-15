@@ -6,6 +6,7 @@ from pydantic_ai import (
     PartStartEvent,
     PartDeltaEvent,
     ThinkingPart,
+    ToolCallPart,
     TextPartDelta,
     TextPart,
     ThinkingPartDelta,
@@ -238,6 +239,35 @@ class JuPydanticAgent:
         """
         try:
             self.is_interrupted = False
+
+            # # Resolve unprocessed tool calls if a new prompt is provided
+            # if prompt and self.agent_history:
+            #     last_msg = self.agent_history[-1]
+            #     if isinstance(last_msg, ModelRequest):
+            #         # Find all tool calls that need a response
+            #         pending_calls = [
+            #             part
+            #             for part in last_msg.parts
+            #             if isinstance(part, ToolCallPart)
+            #         ]
+            #         if pending_calls:
+            #             self.log.info(
+            #                 f"Auto-denying {len(pending_calls)} unprocessed tool calls to allow new prompt."
+            #             )
+            #             # Create a response message containing denial for each tool call
+            #             denial_parts = [
+            #                 ToolReturnPart(
+            #                     tool_name=(
+            #                         call.tool_name if call.tool_name is not None else ""
+            #                     ),
+            #                     tool_call_id=call.tool_call_id,
+            #                     content="User cancelled this request to provide a new prompt.",
+            #                 )
+            #                 for call in pending_calls
+            #             ]
+            #             # Append the resolution to history
+            #             self.agent_history.append(ModelRequest(parts=denial_parts))
+
             deferred_tool_result = None
             self.out_md_stack = []
             while True:
