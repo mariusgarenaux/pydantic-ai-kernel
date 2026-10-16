@@ -6,7 +6,7 @@ from pydantic_ai_kernel import (
 )
 import ipywidgets as widgets
 from pydantic_ai_kernel.utils import put_text_in_box, nice_display_tool_args
-from typing import Tuple
+from typing import Tuple, Optional
 from pydantic_ai.messages import (
     ModelMessage,
     ModelRequestPart,
@@ -39,9 +39,12 @@ class AgentHistoryMagic(BoostedMagic):
     @boosted_option(
         "--full",
         default=False,
+        action="store_true",
         help="Force display of full text, ignoring truncation",
     )
-    def line_agent_history(self, formatter: str | None = None, full: bool = False) -> None:
+    def line_agent_history(
+        self, formatter: str | None = None, full: bool = False
+    ) -> None:
         """
         %agent_history : displays the agent history
 
@@ -57,7 +60,9 @@ class AgentHistoryMagic(BoostedMagic):
         self.evaluate = False
         history: list[ModelMessage] = self.kernel.agent.agent_history
 
-        structured_messages = structured_message_display(history, max_length=None if full else 1000)
+        structured_messages = structured_message_display(
+            history, max_length=None if full else 1000
+        )
 
         if formatter == "json":
             self.kernel.Print(
@@ -84,13 +89,13 @@ class AgentHistoryMagic(BoostedMagic):
                     # If widgets are NOT used, we might still want to truncate if not --full
                     # But the user requested: "don't truncate it if the widgets are displayed. If they are not, you have to truncate them."
                     # AND "add flag to %agent_history magic that display the full text, whatever the formatter is"
-                    
+
                     # The structured_message_display already handled truncation based on 'full'.
-                    # However, if widgets are NOT used, we should probably ensure truncation happened 
-                    # unless --full was passed. 
+                    # However, if widgets are NOT used, we should probably ensure truncation happened
+                    # unless --full was passed.
                     # Actually, if we pass max_length=None to structured_message_display, it won't truncate.
                     # If we pass 1000, it will.
-                    
+
                     # Let's refine the logic in structured_message_display first.
                     self.kernel.Display({"text/markdown": f"### {title}  \n{content}"})
             elif formatter == "text":
@@ -103,7 +108,7 @@ class AgentHistoryMagic(BoostedMagic):
 
 def get_title_content_from_message_part(
     part: ModelRequestPart | ModelResponsePart,
-    max_length: int = 1000,
+    max_length: Optional[int],
 ) -> Tuple[str, str]:
     """
     Transform the model message part in a string that is more human-readable.
@@ -148,13 +153,16 @@ def get_title_content_from_message_part(
     elif isinstance(part, FilePart):
         title = "File"
 
-    if len(content) > max_length:
+    if max_length is not None and len(content) > max_length:
         content = content[:max_length] + "... [truncated]"
 
     return title, content
 
 
-def structured_message_display(history: list[ModelMessage]) -> list[Tuple[str, str]]:
+def structured_message_display(
+    history: list[ModelMessage],
+    max_length: Optional[int],
+) -> list[Tuple[str, str]]:
     """
     Structure all the messages, ready to be displayed according to formatter
 
@@ -165,7 +173,9 @@ def structured_message_display(history: list[ModelMessage]) -> list[Tuple[str, s
     out = []
     for each_model_message in history:
         for each_part in each_model_message.parts:
-            title, content = get_title_content_from_message_part(each_part)
+            title, content = get_title_content_from_message_part(
+                each_part, max_length=max_length
+            )
             out.append((title, content))
     return out
 
