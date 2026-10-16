@@ -4,11 +4,9 @@ build-backend = "hatchling.build"
 
 [project]
 dependencies = [
-    "pydantic>=2.12.3",
     "pydantic-ai>=1.101.0",
     "pyyaml>=6.0.3",
     "metakernel>=1.0.4",
-    "statikomand>=0.1.1",
     "ipywidgets>=8.1.8",
     "boosted-magics>=0.1.1",
 ]

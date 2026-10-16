@@ -92,6 +92,7 @@ class PydanticAIBaseKernel(MetaKernel):
         toolsets: Sequence[FunctionToolset | ToolsetFunc] | None = None,
         output_type: Type = str,
         authorized_magics_names: list[str] | None = None,
+        should_only_take_my_magics: bool = False,
         additional_agent_kwargs: dict[str, Any] | None = None,
         **kwargs,
     ):
@@ -110,25 +111,31 @@ class PydanticAIBaseKernel(MetaKernel):
                 List of class names for the magics you want to whitelist for this kernel.
                 By default, all non-whitelisted magics are not loaded. You must manually
                 add a class name (e.g. FileMagic, ...) to have it running on this kernel.
+            - should_only_take_my_magics (bool = False) : If True, the list from `authorized_
+                magics_names` will be the exhaustive list of accessible magics. No additional
+                magics will be added.
             - additional_agent_kwargs (dict[str, Any] | None = None) : any kwargs which
                 will be given to pydantic-ai agent initialization.
         """
 
         if authorized_magics_names is None:
             authorized_magics_names = []
-        authorized_magics_names += [
-            "HelpMagic",
-            "MagicMagic",
-            "AgentHistoryMagic",
-            "ToolsMagic",
-            "ForgetMagic",
-            "ConfigMagic",
-            "FileMagic",
-            "MCPMagic",
-            "UsageMagic",
-            "ThinkMagic",
-            "FormatterMagic",
-        ]
+        if not should_only_take_my_magics:
+            # we add pydantic_ai_kernel magics
+            # FileMagic is added too
+            authorized_magics_names += [
+                "HelpMagic",
+                "MagicMagic",
+                "AgentHistoryMagic",
+                "ToolsMagic",
+                "ForgetMagic",
+                "ConfigMagic",
+                "FileMagic",
+                "MCPMagic",
+                "UsageMagic",
+                "ThinkMagic",
+                "FormatterMagic",
+            ]
         self.authorized_magics_names = authorized_magics_names
         self.additional_agent_kwargs = (
             additional_agent_kwargs if additional_agent_kwargs else {}

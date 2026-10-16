@@ -1,0 +1,12 @@
+{
+    "argv": [
+        "python",
+        "-m",
+        "example_agent",
+        "-f",
+        "{connection_file}"
+    ],
+    "display_name": "Example Agent",
+    "interrupt_mode": "message",
+    "language": "text"
+}

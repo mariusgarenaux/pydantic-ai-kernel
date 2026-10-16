@@ -53,20 +53,3 @@ to create the config file, and start chat. See documentation for more informatio
 
 > `%help <magic_name>` and `%magic` will give you appropriate documentation
 
-## Troubleshooting
-
-TAB completion for magic can be broken with older metakernel versions (before 1.0.4). To fix it, install the 1.0.4 manually :
-
-```bash
-uv add "metakernel @ git+https://github.com/Calysto/metakernel.git@afd3ddd"
-```
-
-or without `uv`:
-
-```bash
-git clone https://github.com/Calysto/metakernel
-cd metakernel
-git checkout afd3ddd
-pip install -e .
-cd ..
-```

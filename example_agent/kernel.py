@@ -43,8 +43,9 @@ class ExampleAgent(PydanticAIBaseKernel):
         super().__init__(
             kernel_name="example_agent",
             authorized_magics_names=[
-                "ExampleAdditionalMagic",
+                "AgentHistoryMagic",
             ],
+            should_only_take_my_magics=True,
             tools=[add_tool, mul_tool, display_long_string_tool],
             toolsets=[hi_toolset],
             **kwargs,
