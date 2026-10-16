@@ -1,3 +1,5 @@
+from .utils import ExpandedStr
+
 from pydantic_ai import UserError
 from pydantic_ai.models import infer_model, Model
 from pydantic_ai.providers import infer_provider_class, Provider
@@ -151,6 +153,13 @@ class ModelProviderConfig(BaseModel):
         ProviderConstructor = infer_provider_class(self.name)
         return ProviderConstructor(**self.params)
 
+    @field_validator("params", mode="after")
+    @classmethod
+    def expand_env(cls, params: dict) -> dict:
+        for each_key, each_value in params.items():
+            params[each_key] = os.path.expandvars(each_value)
+        return params
+
 
 class ModelConfig(BaseModel):
     """
@@ -223,7 +232,7 @@ class AgentConfig(BaseModel):
         ),
     ]
     system_prompt: Annotated[
-        str,
+        ExpandedStr,
         Field(
             description="The system prompt for this agent, or a path towards a text file containing system prompt.",
             examples=[

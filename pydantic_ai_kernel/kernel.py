@@ -1,7 +1,7 @@
 # Internal Imports
 from .agent_config import AgentConfig
 from .jupydantic_agent import JuPydanticAgent
-from .utils import prompt_user_approval, LoadConfigError
+from .utils import LoadConfigError
 
 # Base python dependencies
 from tempfile import NamedTemporaryFile

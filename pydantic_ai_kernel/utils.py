@@ -1,7 +1,14 @@
 import textwrap
 from pydantic_ai import ToolCallPart
 import json
-from typing import Optional
+from typing import Optional, Annotated
+from pydantic import BeforeValidator
+import os
+
+
+ExpandedStr = Annotated[
+    str, BeforeValidator(os.path.expandvars)
+]  # from settings loading : expands environment variables before loading it from file
 
 
 def nice_display_tool_args(tool_args: Optional[str | dict]) -> str:
