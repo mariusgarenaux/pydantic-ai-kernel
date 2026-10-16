@@ -1,4 +1,5 @@
-from pydantic_ai_kernel import BoostedMagic, PydanticAIBaseKernel
+from pydantic_ai_kernel import PydanticAIBaseKernel
+from boosted_magics import BoostedMagic
 
 
 class ThinkMagic(BoostedMagic):

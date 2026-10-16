@@ -1,9 +1,6 @@
-from pydantic_ai_kernel import (
-    PydanticAIBaseKernel,
-    BoostedMagic,
-    boosted_option,
-    complete_from_list,
-)
+from pydantic_ai_kernel import PydanticAIBaseKernel
+from boosted_magics import BoostedMagic, boosted_option
+from boosted_magics.boosted_magic import complete_from_list
 import ipywidgets as widgets
 from pydantic_ai_kernel.utils import put_text_in_box
 from pydantic_ai import Tool, FunctionToolset, ApprovalRequiredToolset

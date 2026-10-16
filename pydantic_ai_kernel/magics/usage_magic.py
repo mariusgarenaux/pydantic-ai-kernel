@@ -1,7 +1,7 @@
-import os
 import json
 import dataclasses
-from pydantic_ai_kernel import BoostedMagic, boosted_option, PydanticAIBaseKernel
+from pydantic_ai_kernel import PydanticAIBaseKernel
+from boosted_magics import BoostedMagic, boosted_option
 
 
 class UsageMagic(BoostedMagic):
