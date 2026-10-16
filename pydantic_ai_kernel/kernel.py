@@ -113,19 +113,23 @@ class PydanticAIBaseKernel(MetaKernel):
                 add a class name (e.g. FileMagic, ...) to have it running on this kernel.
             - should_only_take_my_magics (bool = False) : If True, the list from `authorized_
                 magics_names` will be the exhaustive list of accessible magics. No additional
-                magics will be added.
+                magics will be added, except MagicMagic and HelpMagic, which are mandatory
+                for metakernel.
             - additional_agent_kwargs (dict[str, Any] | None = None) : any kwargs which
                 will be given to pydantic-ai agent initialization.
         """
 
         if authorized_magics_names is None:
             authorized_magics_names = []
+        if "HelpMagic" not in authorized_magics_names:
+            authorized_magics_names.append("HelpMagic")
+        if "MagicMagic" not in authorized_magics_names:
+            authorized_magics_names.append("MagicMagic")
+
         if not should_only_take_my_magics:
             # we add pydantic_ai_kernel magics
             # FileMagic is added too
             authorized_magics_names += [
-                "HelpMagic",
-                "MagicMagic",
                 "AgentHistoryMagic",
                 "ToolsMagic",
                 "ForgetMagic",

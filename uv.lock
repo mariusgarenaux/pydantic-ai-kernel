@@ -2038,7 +2038,7 @@ wheels = [
 
 [[package]]
 name = "pydantic-ai-kernel"
-version = "1.5.3"
+version = "1.5.4"
 source = { editable = "." }
 dependencies = [
     { name = "boosted-magics" },
