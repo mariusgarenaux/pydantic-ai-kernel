@@ -2,9 +2,9 @@ site_name: Pydantic AI Kernel
 
 nav:
   - 'Home' : 'index.md'
-  - 'Config': 'agent_config.md'
   - 'Creating your agent-kernel': 'subclass.md'
   - 'Frontends': 'frontends.md'
+  - 'Loading Agents Configurations': 'agent_config.md'
   - 'API':
     - 'Kernel': 'api/kernel.md'
     - 'JuPydanticAgent': 'api/jupydantic_agent.md'

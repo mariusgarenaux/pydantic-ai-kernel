@@ -1,5 +1,10 @@
 # Different Jupyter Frontends
 
+Instead of building a custom CLI for a chatbot, this library leverages the Jupyter ecosystem to provide a free UI and a proven API for agent access. No CLI is implemented here - just the [kernel](https://jupyter-client.readthedocs.io/en/stable/messaging.html).
+
+This architecture allows for the spawning of multiple kernel instances via the [Jupyter kernel gateway](https://jupyter-kernel-gateway.readthedocs.io/en/latest/), enabling access to agents over web sockets.
+
+
 > The notebook format can be used to save and share the conversation with the agent
 
 ## Jupyter Console

@@ -51,6 +51,8 @@ dev = [
     "jupyter-console>=6.6.3",
     "jupyter-kernel-test>=0.7.0",
     "mkdocs>=1.6.1",
+    "mkdocs-material>=9.7.7",
+    "mkdocstrings-python>=2.0.10",
     "pytest>=9.0.2",
     "twine>=6.2.0",
 ]
