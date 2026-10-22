@@ -12,7 +12,7 @@ dependencies = [
 ]
 name = "pydantic-ai-kernel"
 version = "1.5.4"
-description = "Base kernel for pydantic-ai kernels"
+description = "Create Jupyter Kernels with pydantic-ai agents"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE-2.0.txt" }
