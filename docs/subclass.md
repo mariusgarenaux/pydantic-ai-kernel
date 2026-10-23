@@ -1,8 +1,10 @@
 # Creating your own agents
 
-There are two ways of using pydantic-ai kernel package to build your own chatbot, or agent-based application.
+There are two ways of using pydantic-ai kernel package to build your own chatbot, or agent-based application. They are always embedded in jupyter kernels.
 
-The easiest way (but less powerful), is to subclass [PydanticAIBaseKernel object](#simple-application-single-agent--subclass-pydanticaibasekernel). The more complex one is to build your own metakernel subclass, and to use our [JuPydanticAgent wrapper](#complex-applications--use-jupydanticagent) of Pydantic-AI Agent to interact with one or many agent.s within the kernel.
+> You can see examples of such agents here : [https://gitlab.com/logistica-dev/jupyter-agent-kernel](https://gitlab.com/logistica-dev/jupyter-agent-kernel)
+
+The easiest way (but less powerful), is to create a jupyter kernel by subclassing [PydanticAIBaseKernel object](#simple-application-single-agent--subclass-pydanticaibasekernel). The more complex one is to build your own metakernel subclass, and to use our [JuPydanticAgent wrapper](#complex-applications--use-jupydanticagent) of Pydantic-AI Agent to interact with one or many agent.s within the kernel.
 
 ## Complex applications : use JuPydanticAgent
 

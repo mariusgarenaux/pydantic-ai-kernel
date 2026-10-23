@@ -6,7 +6,7 @@ Pydantic AI Kernel is a python library which takes advantage of both [pydantic-a
 
 This allows to build jupyter kernels which takes raw text as input, and returns anything you want : structured output, raw text, ... Such kernels can be called `agents`, by leveraging features of `pydantic-ai` during the execution process. Once the `agent` is built, the jupyter messaging protocol allows to easily :
 
-- access it with various frontends : Command Line Interface, Web Interface, REST API, websockets, ... See [frontends](./frontends.md)
+- access it with various frontends : Command Line Interface, Web Interface (Jupyter LAB), ... See [frontends](https://mariusgarenaux.github.io/pydantic-ai-kernel/frontends/)
 
 - expose it with APIs ready for production : REST and websockets with [jupyter server](https://jupyter-server.readthedocs.io/en/latest/index.html), [jupyter kernel gateway](https://jupyter-kernel-gateway.readthedocs.io/en/latest/) or [jupyter enterprise gateway](https://jupyter-enterprise-gateway.readthedocs.io/en/latest/index.html), python API with [jupyter_kernel_client](https://jupyter-kernel-client.datalayer.tech/)
 
@@ -22,7 +22,7 @@ This allows to build jupyter kernels which takes raw text as input, and returns 
 - **Streamed Output**: Possibility to forward pydantic-ai agent streaming to the cell output of jupyter kernel
 - **Flexible Configuration**: Configure system prompts, tools, mcp servers, models and inference providers (via `pydantic-ai`).
 - **Magics**: Custom commands with TAB completion, for example : view history and tool calling, set up config, ...
-- **Interactive Tooling**: Supports user validation for tools requiring approval
+- **Interactive Tooling**: forwards tool validation of pydantic-ai to jupyter input messages for user validation
 - **Different output types** : kernel can send several data type for its output, supported by jupyter frontend (markdown, raw text, html, **jupyter widgets**, ...)
 
 ## Getting Started
@@ -45,5 +45,4 @@ If you use any PydanticAIBaseKernel subclass, you will inherits the magics comma
 
 Refer to `%help <magic_name>` or `%magic` for detailed documentation on available commands.
 
-You can also set up a configuration file manually : [Configuration](./agent_config.md)
-
+You can also set up a configuration file manually : [Configuration](https://mariusgarenaux.github.io/pydantic-ai-kernel/agent_config/)
